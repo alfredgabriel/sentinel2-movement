@@ -38,7 +38,9 @@ def test_compute_subpixel_centroid_synthetic_gaussian() -> None:
     y_coords, x_coords = np.mgrid[0:size, 0:size]
     # Gaussian with sigma = 1.2
     sigma = 1.2
-    synthetic = 200.0 * np.exp(-((x_coords - true_x) ** 2 + (y_coords - true_y) ** 2) / (2 * sigma**2))
+    synthetic = 200.0 * np.exp(
+        -((x_coords - true_x) ** 2 + (y_coords - true_y) ** 2) / (2 * sigma**2)
+    )
 
     # Seed close to the peak
     seed = (24.0, 19.0)

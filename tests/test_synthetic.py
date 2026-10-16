@@ -57,7 +57,9 @@ def test_synthetic_moving_aircraft_recovery() -> None:
         blob = amplitude * np.exp(-dist_sq / (2.0 * sigma**2))
 
         # Add background and slight noise
-        band = background_level + blob + np.random.default_rng(42).normal(0.0, 1.0, size=(size, size))
+        band = (
+            background_level + blob + np.random.default_rng(42).normal(0.0, 1.0, size=(size, size))
+        )
         bands[band_name] = band.astype(np.float32)
 
         # Realistic integer seed rounded from detection or manual click
@@ -77,19 +79,25 @@ def test_synthetic_moving_aircraft_recovery() -> None:
 
     # Verification: velocity error < 5 %
     speed_error_rel = abs(result.speed_kmh - true_speed_kmh) / true_speed_kmh
-    assert speed_error_rel < 0.05, f"Speed error {speed_error_rel:.3%} exceeds 5% (got {result.speed_kmh:.1f} km/h)"
+    assert speed_error_rel < 0.05, (
+        f"Speed error {speed_error_rel:.3%} exceeds 5% (got {result.speed_kmh:.1f} km/h)"
+    )
 
     # Verification: heading error < 2 deg
     heading_error = abs(result.heading_deg - true_heading_deg)
-    assert heading_error < 2.0, f"Heading error {heading_error:.2f} deg exceeds 2 deg (got {result.heading_deg:.1f} deg)"
+    assert heading_error < 2.0, (
+        f"Heading error {heading_error:.2f} deg exceeds 2 deg (got {result.heading_deg:.1f} deg)"
+    )
 
     # Verification: collinearity offset < 0.5 px
-    assert result.collinearity_px < 0.5, f"Collinearity offset {result.collinearity_px:.2f} px too large"
+    assert result.collinearity_px < 0.5, (
+        f"Collinearity offset {result.collinearity_px:.2f} px too large"
+    )
 
     # Verification: green relative position close to theoretical ~0.524
-    assert (
-        abs(result.green_relative_fraction - EXPECTED_GREEN_RELATIVE_FRACTION) < 0.05
-    ), f"Green relative fraction {result.green_relative_fraction:.3f} deviates from expected"
+    assert abs(result.green_relative_fraction - EXPECTED_GREEN_RELATIVE_FRACTION) < 0.05, (
+        f"Green relative fraction {result.green_relative_fraction:.3f} deviates from expected"
+    )
 
     # Verification: uncertainty interval contains true value
     assert result.speed_kmh_min <= true_speed_kmh <= result.speed_kmh_max

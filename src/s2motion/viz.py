@@ -146,12 +146,21 @@ def create_annotated_figure(
         fontsize=9.5,
         fontfamily="monospace",
         color="white",
-        bbox={"boxstyle": "round,pad=0.5", "facecolor": "#111111", "alpha": 0.85, "edgecolor": "#555555"},
+        bbox={
+            "boxstyle": "round,pad=0.5",
+            "facecolor": "#111111",
+            "alpha": 0.85,
+            "edgecolor": "#555555",
+        },
         verticalalignment="bottom",
     )
 
     # 2. Right Panels: Individual Band Anomaly Progression (Chronological)
-    band_sequence = [("blue", "B02 (Blue)", 0.000), ("green", "B03 (Green)", 0.527), ("red", "B04 (Red)", 1.005)]
+    band_sequence = [
+        ("blue", "B02 (Blue)", 0.000),
+        ("green", "B03 (Green)", 0.527),
+        ("red", "B04 (Red)", 1.005),
+    ]
     r_sub = 8
 
     for idx, (b_key, b_label, dt) in enumerate(band_sequence):
@@ -195,7 +204,9 @@ def show_interactive_viewer(
 
     def onclick(event):
         if event.xdata is not None and event.ydata is not None:
-            print(f"Clicked seed: x={event.xdata:.1f}, y={event.ydata:.1f} (integer: {int(round(event.xdata))}, {int(round(event.ydata))})")
+            print(
+                f"Clicked seed: x={event.xdata:.1f}, y={event.ydata:.1f} (integer: {int(round(event.xdata))}, {int(round(event.ydata))})"
+            )
 
     fig.canvas.mpl_connect("button_press_event", onclick)
     plt.tight_layout()

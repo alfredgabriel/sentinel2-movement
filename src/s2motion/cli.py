@@ -165,7 +165,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
         threshold_ratio=threshold_ratio,
     )
     for b_name, (cx, cy) in centroids.items():
-        print(f"  - {b_name.capitalize():6s} (initial: {seeds[b_name]}): subpixel centroid = ({cx:.2f}, {cy:.2f})")
+        print(
+            f"  - {b_name.capitalize():6s} (initial: {seeds[b_name]}): subpixel centroid = ({cx:.2f}, {cy:.2f})"
+        )
 
     print("\nCalculating kinematics and uncertainty...")
     result = calculate_motion(
@@ -202,12 +204,22 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
     # Subcommand: crops
-    p_crops = subparsers.add_parser("crops", help="Search STAC scenes and generate RGB preview PNGs")
-    p_crops.add_argument("--bbox", nargs=4, type=float, metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT"), help="Bounding box in EPSG:4326")
+    p_crops = subparsers.add_parser(
+        "crops", help="Search STAC scenes and generate RGB preview PNGs"
+    )
+    p_crops.add_argument(
+        "--bbox",
+        nargs=4,
+        type=float,
+        metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT"),
+        help="Bounding box in EPSG:4326",
+    )
     p_crops.add_argument("--start", default="2025-01-01", help="Start date (YYYY-MM-DD)")
     p_crops.add_argument("--end", default="2026-09-30", help="End date (YYYY-MM-DD)")
     p_crops.add_argument("--max-cloud", type=float, default=10.0, help="Max cloud cover percentage")
-    p_crops.add_argument("--scale", type=int, default=1, help="Enlargement factor without smoothing (default: 1)")
+    p_crops.add_argument(
+        "--scale", type=int, default=1, help="Enlargement factor without smoothing (default: 1)"
+    )
     p_crops.add_argument("--out", default="outputs", help="Output directory (default: outputs/)")
     p_crops.add_argument("--force", action="store_true", help="Overwrite existing PNG files")
 
@@ -215,14 +227,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_view = subparsers.add_parser("view", help="Interactive pixel coordinate inspector")
     p_view.add_argument("--config", help="Path to scenario .toml configuration file")
     p_view.add_argument("--date", help="Scene date (YYYY-MM-DD)")
-    p_view.add_argument("--bbox", nargs=4, type=float, metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT"))
+    p_view.add_argument(
+        "--bbox", nargs=4, type=float, metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT")
+    )
 
     # Subcommand: measure
     p_measure = subparsers.add_parser("measure", help="Measure velocity, heading, and coherence")
     p_measure.add_argument("--config", help="Path to scenario .toml configuration file")
     p_measure.add_argument("--date", help="Scene date (YYYY-MM-DD)")
-    p_measure.add_argument("--bbox", nargs=4, type=float, metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT"))
-    p_measure.add_argument("--runway-heading", type=float, help="Runway heading in degrees clockwise from North")
+    p_measure.add_argument(
+        "--bbox", nargs=4, type=float, metavar=("MIN_LON", "MIN_LAT", "MAX_LON", "MAX_LAT")
+    )
+    p_measure.add_argument(
+        "--runway-heading", type=float, help="Runway heading in degrees clockwise from North"
+    )
     p_measure.add_argument("--out", help="Path to save annotated output figure")
 
     return parser

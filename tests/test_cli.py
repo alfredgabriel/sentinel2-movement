@@ -10,7 +10,9 @@ from s2motion.cli import build_parser, load_toml_config
 def test_cli_parser_crops() -> None:
     """Verify crops subcommand arguments parsing."""
     parser = build_parser()
-    args = parser.parse_args(["crops", "--start", "2026-01-01", "--end", "2026-06-01", "--max-cloud", "5.0"])
+    args = parser.parse_args(
+        ["crops", "--start", "2026-01-01", "--end", "2026-06-01", "--max-cloud", "5.0"]
+    )
     assert args.subcommand == "crops"
     assert args.start == "2026-01-01"
     assert args.end == "2026-06-01"
@@ -28,12 +30,17 @@ def test_cli_parser_view() -> None:
 def test_cli_parser_measure() -> None:
     """Verify measure subcommand arguments parsing."""
     parser = build_parser()
-    args = parser.parse_args([
-        "measure",
-        "--config", "examples/loiu_2026-08-12.toml",
-        "--runway-heading", "120.0",
-        "--out", "docs/img/output.png",
-    ])
+    args = parser.parse_args(
+        [
+            "measure",
+            "--config",
+            "examples/loiu_2026-08-12.toml",
+            "--runway-heading",
+            "120.0",
+            "--out",
+            "docs/img/output.png",
+        ]
+    )
     assert args.subcommand == "measure"
     assert args.config == "examples/loiu_2026-08-12.toml"
     assert args.runway_heading == 120.0

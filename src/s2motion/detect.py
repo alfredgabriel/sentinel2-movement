@@ -61,7 +61,9 @@ def compute_subpixel_centroid(
     x0, y0 = int(round(seed[0])), int(round(seed[1]))
 
     if not (0 <= x0 < w and 0 <= y0 < h):
-        raise ValueError(f"Seed ({seed[0]}, {seed[1]}) is out of bounds for image of shape ({h}, {w})")
+        raise ValueError(
+            f"Seed ({seed[0]}, {seed[1]}) is out of bounds for image of shape ({h}, {w})"
+        )
 
     y_min = max(0, y0 - radius)
     y_max = min(h, y0 + radius + 1)
@@ -143,7 +145,9 @@ def detect_all_centroids(
     centroids: dict[str, tuple[float, float]] = {}
     for band_name, seed in seeds.items():
         if band_name not in bands:
-            raise KeyError(f"Band '{band_name}' provided in seeds but missing from bands dictionary")
+            raise KeyError(
+                f"Band '{band_name}' provided in seeds but missing from bands dictionary"
+            )
         centroids[band_name] = detect_band_centroid(
             bands[band_name],
             seed=seed,
