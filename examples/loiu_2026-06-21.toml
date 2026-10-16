@@ -1,0 +1,24 @@
+# Case study: High-altitude aircraft in cruising flight
+# Date: 2026-06-21
+# Visible contrail and apparent displacement towards the southeast across ~330 m.
+# Note: For an airborne object at high altitude, apparent inter-band displacement
+# conflates true aircraft ground speed with stereoscopic parallax induced by satellite motion.
+
+[scene]
+date = "2026-06-21"
+bbox = [-2.945, 43.285, -2.875, 43.325]
+description = "High-altitude aircraft in cruising flight showing parallax and contrail"
+
+[seeds]
+# Measured from unscaled crop raster (10 m/pixel)
+blue = [196, 224]
+green = [206, 239]
+red = [212, 253]
+
+[detection]
+median_kernel = 9
+radius = 3
+threshold_ratio = 0.5
+
+[output]
+figure = "docs/img/loiu_2026-06-21_measured.png"
