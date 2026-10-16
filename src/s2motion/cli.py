@@ -14,7 +14,11 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-import tomllib
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 from s2motion.constants import (
     BILBAO_AIRPORT_BBOX,
