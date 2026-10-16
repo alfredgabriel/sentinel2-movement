@@ -13,8 +13,17 @@ from typing import Final
 
 # ---------------------------------------------------------------------------
 # Sentinel-2 Pushbroom Inter-Band Temporal Delays (10 m bands)
-# Delays are referenced to Band 2 (Blue, 0.000 s).
-# Source: Krauß (2021), p. 17, Table / Section on 10 m band acquisition timing.
+# Delays referenced to B02 (Blue): B02=0.000s, B08=0.264s, B03=0.527s, B04=1.005s.
+# Source: Krauß (2021), p. 17.
+#
+# Physical ground acquisition order in flight direction (descending orbit):
+# The detector for Band 4 (Red) leads on the focal plane along-track and reaches
+# a ground target FIRST. Band 3 (Green), Band 8 (NIR), and Band 2 (Blue) follow sequentially.
+# Therefore, an object in motion is imaged first in Red and last in Blue:
+#   t_red   = 0.000 s  (B04, leading ground acquisition)
+#   t_green = 1.005 - 0.527 = 0.478 s  (B03)
+#   t_nir   = 1.005 - 0.264 = 0.741 s  (B08)
+#   t_blue  = 1.005 s  (B02, trailing ground acquisition)
 # ---------------------------------------------------------------------------
 BAND_DELAYS_S: Final[dict[str, float]] = {
     "B02": 0.000,  # Blue (490 nm)
@@ -23,26 +32,31 @@ BAND_DELAYS_S: Final[dict[str, float]] = {
     "B04": 1.005,  # Red (665 nm)
 }
 
-# Band name aliases mapping common names to Sentinel-2 band identifiers
-BAND_ALIASES: Final[dict[str, str]] = {
-    "blue": "B02",
-    "nir": "B08",
-    "green": "B03",
-    "red": "B04",
+# Ground acquisition timing referenced to the first ground exposure (Red / B04 = 0.000 s)
+GROUND_ACQUISITION_TIMING_S: Final[dict[str, float]] = {
+    "red": 0.000,  # B04: leading detector
+    "green": 0.478,  # B03: 1.005 - 0.527 s
+    "nir": 0.741,  # B08: 1.005 - 0.264 s
+    "blue": 1.005,  # B02: trailing detector (+1.005 s)
 }
 
-# Chronological acquisition sequence for 10 m bands
-CHRONOLOGICAL_BAND_ORDER: Final[tuple[str, ...]] = ("B02", "B08", "B03", "B04")
-CHRONOLOGICAL_COMMON_NAMES: Final[tuple[str, ...]] = ("blue", "nir", "green", "red")
+# Band name aliases mapping common names to Sentinel-2 band identifiers
+BAND_ALIASES: Final[dict[str, str]] = {
+    "red": "B04",
+    "green": "B03",
+    "nir": "B08",
+    "blue": "B02",
+}
 
-# Default endpoint delay: Blue (B02) -> Red (B04) in seconds
-DELTA_T_BLUE_RED_S: Final[float] = BAND_DELAYS_S["B04"] - BAND_DELAYS_S["B02"]  # 1.005 s
+# Chronological order of ground imaging for a moving object: Red -> Green -> Blue
+CHRONOLOGICAL_GROUND_ORDER: Final[tuple[str, ...]] = ("red", "green", "blue")
 
-# Theoretical relative position of green along the blue-to-red trajectory:
-# (t_green - t_blue) / (t_red - t_blue) = 0.527 / 1.005 ~= 0.5244
-EXPECTED_GREEN_RELATIVE_FRACTION: Final[float] = (
-    BAND_DELAYS_S["B03"] - BAND_DELAYS_S["B02"]
-) / DELTA_T_BLUE_RED_S
+# Total time elapsed from Red to Blue in seconds
+DELTA_T_RED_BLUE_S: Final[float] = 1.005
+
+# Theoretical relative position of green along the red-to-blue trajectory:
+# (t_green - t_red) / (t_blue - t_red) = 0.478 / 1.005 ~= 0.4756
+EXPECTED_GREEN_RELATIVE_FRACTION: Final[float] = 0.478 / DELTA_T_RED_BLUE_S
 
 # ---------------------------------------------------------------------------
 # Sensor and Physical Constants
@@ -79,9 +93,9 @@ DEFAULT_COLLECTION: Final[str] = "sentinel-2-l2a"
 
 # Mapping from common band names to AWS Earth Search STAC asset names
 STAC_ASSET_MAP: Final[dict[str, str]] = {
-    "blue": "blue",
-    "green": "green",
     "red": "red",
+    "green": "green",
+    "blue": "blue",
     "nir": "nir",
 }
 

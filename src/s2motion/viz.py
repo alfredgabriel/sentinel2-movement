@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 
-from s2motion.constants import BAND_DELAYS_S
+from s2motion.constants import GROUND_ACQUISITION_TIMING_S
 from s2motion.detect import subtract_local_background
 from s2motion.measure import MeasurementResult
 
@@ -53,13 +53,13 @@ def create_annotated_figure(
 ) -> plt.Figure:
     """Generate a multi-panel publication-quality figure detailing motion detection.
 
-    Left: Zoomed RGB composite with subpixel centroid markers, movement vector arrow,
+    Left: Zoomed RGB composite with subpixel centroid markers, movement vector arrow (Red -> Blue),
           and runway orientation guide.
-    Right: Individual spectral band anomaly crops arranged chronologically (Blue -> Green -> Red)
+    Right: Individual spectral band anomaly crops arranged chronologically (Red -> Green -> Blue)
            showing the progression over time.
 
     Args:
-        bands: Dictionary of 2D band arrays (must contain 'blue', 'green', 'red').
+        bands: Dictionary of 2D band arrays (must contain 'red', 'green', 'blue').
         centroids: Subpixel centroid coordinates per band.
         result: Computed MeasurementResult with kinematics and coherence metrics.
         title: Overall figure title.
@@ -75,8 +75,8 @@ def create_annotated_figure(
     if "green" in centroids:
         cx0, cy0 = centroids["green"]
     else:
-        cx0 = (centroids["blue"][0] + centroids["red"][0]) / 2.0
-        cy0 = (centroids["blue"][1] + centroids["red"][1]) / 2.0
+        cx0 = (centroids["red"][0] + centroids["blue"][0]) / 2.0
+        cy0 = (centroids["red"][1] + centroids["blue"][1]) / 2.0
 
     fig = plt.figure(figsize=(14, 8), constrained_layout=True)
     gs = fig.add_gridspec(3, 2, width_ratios=[1.4, 1.0])
@@ -85,13 +85,13 @@ def create_annotated_figure(
     ax_main = fig.add_subplot(gs[:, 0])
     ax_main.imshow(rgb, interpolation="nearest")
 
-    # Draw centroid markers
-    colors = {"blue": "deepskyblue", "green": "lime", "red": "tomato"}
-    for b_name in ("blue", "green", "red"):
+    # Draw centroid markers in chronological order: Red -> Green -> Blue
+    colors = {"red": "tomato", "green": "lime", "blue": "deepskyblue"}
+    for b_name in ("red", "green", "blue"):
         if b_name in centroids:
             px, py = centroids[b_name]
-            code = {"blue": "B02", "green": "B03", "red": "B04"}.get(b_name, "")
-            dt = BAND_DELAYS_S.get(code, 0.0)
+            code = {"red": "B04", "green": "B03", "blue": "B02"}.get(b_name, "")
+            dt = GROUND_ACQUISITION_TIMING_S.get(b_name, 0.0)
             ax_main.plot(
                 px,
                 py,
@@ -103,13 +103,13 @@ def create_annotated_figure(
                 label=f"{b_name.capitalize()} ({code}, t={dt:.3f}s)",
             )
 
-    # Draw motion vector arrow: Blue -> Red
-    bx, by = centroids["blue"]
+    # Draw motion vector arrow: Red -> Blue
     rx, ry = centroids["red"]
+    bx, by = centroids["blue"]
     ax_main.annotate(
         "",
-        xy=(rx, ry),
-        xytext=(bx, by),
+        xy=(bx, by),
+        xytext=(rx, ry),
         arrowprops={"arrowstyle": "-|>", "color": "white", "lw": 2.2, "mutation_scale": 18},
     )
 
@@ -121,7 +121,7 @@ def create_annotated_figure(
     ax_main.set_xlabel("X (East, pixels)", fontsize=11)
     ax_main.set_ylabel("Y (South, pixels)", fontsize=11)
     ax_main.set_title(
-        f"Zoomed RGB Composite (10 m/px)\nDisplacement: {result.distance_m:.1f} m | Heading: {result.heading_deg:.1f}°",
+        f"Zoomed RGB Composite (10 m/px) | Vector: Red -> Blue\nDisplacement: {result.distance_m:.1f} m | Heading: {result.heading_deg:.1f}°",
         fontsize=12,
         fontweight="bold",
     )
@@ -129,9 +129,10 @@ def create_annotated_figure(
 
     # Add overlay metrics box on bottom left
     metrics_text = (
-        f"Velocity: {result.speed_kmh:.0f} km/h [{result.speed_kmh_min:.0f} - {result.speed_kmh_max:.0f} km/h]\n"
-        f"Heading:  {result.heading_deg:.1f}° (N={0}°, clockwise)\n"
-        f"Delta t:  {result.delta_t_s:.3f} s (+/-2%)\n"
+        f"Direction: Red -> Green -> Blue\n"
+        f"Velocity:  {result.speed_kmh:.0f} km/h [{result.speed_kmh_min:.0f} - {result.speed_kmh_max:.0f} km/h]\n"
+        f"Heading:   {result.heading_deg:.1f}° (N={0}°, clockwise)\n"
+        f"Delta t:   {result.delta_t_s:.3f} s (+/-2%)\n"
         f"Collinearity: {result.collinearity_px:.2f} px\n"
         f"Green pos:    {result.green_relative_fraction:.2f} (exp: {result.expected_green_fraction:.2f})"
     )
@@ -155,11 +156,11 @@ def create_annotated_figure(
         verticalalignment="bottom",
     )
 
-    # 2. Right Panels: Individual Band Anomaly Progression (Chronological)
+    # 2. Right Panels: Individual Band Anomaly Progression (Chronological: Red -> Green -> Blue)
     band_sequence = [
-        ("blue", "B02 (Blue)", 0.000),
-        ("green", "B03 (Green)", 0.527),
-        ("red", "B04 (Red)", 1.005),
+        ("red", "B04 (Red, Leading)", GROUND_ACQUISITION_TIMING_S["red"]),
+        ("green", "B03 (Green)", GROUND_ACQUISITION_TIMING_S["green"]),
+        ("blue", "B02 (Blue, Trailing)", GROUND_ACQUISITION_TIMING_S["blue"]),
     ]
     r_sub = 8
 

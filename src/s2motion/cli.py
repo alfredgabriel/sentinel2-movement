@@ -171,8 +171,8 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
     print("\nCalculating kinematics and uncertainty...")
     result = calculate_motion(
-        blue_centroid=centroids["blue"],
         red_centroid=centroids["red"],
+        blue_centroid=centroids["blue"],
         green_centroid=centroids.get("green"),
         pixel_size_m=DEFAULT_PIXEL_SIZE_M,
         runway_heading_deg=runway_heading,

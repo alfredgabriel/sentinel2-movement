@@ -1,19 +1,20 @@
 # Case study: Aircraft takeoff from Bilbao Airport (LEBB/BIO)
 # Date: 2026-08-12
-# The aircraft is accelerating on runway 12/30 and taking off towards the northwest (runway 30).
+# The aircraft is accelerating on runway 12/30 and taking off towards the southeast (runway 12, heading ~117.4°).
+# Chronological order of motion: Red -> Green -> Blue
 
 [scene]
 date = "2026-08-12"
 bbox = [-2.945, 43.285, -2.875, 43.325]
 runway_heading = 120.0
-description = "Aircraft takeoff from Bilbao Airport (LEBB/BIO) runway 30"
+description = "Aircraft takeoff from Bilbao Airport (LEBB/BIO) runway 12"
 
 [seeds]
 # Approximate (x, y) coordinates measured in unscaled crop raster (10 m/pixel)
-# Chronological order of acquisition: blue (t=0.000s) -> green (t=0.527s) -> red (t=1.005s)
-blue = [74, 162]
-green = [70, 160]
+# Chronological order of ground imaging: red (t=0.000s) -> green (t=0.478s) -> blue (t=1.005s)
 red = [66, 158]
+green = [70, 160]
+blue = [74, 162]
 
 [detection]
 median_kernel = 9

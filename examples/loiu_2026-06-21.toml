@@ -1,6 +1,6 @@
 # Case study: High-altitude aircraft in cruising flight
 # Date: 2026-06-21
-# Visible contrail and apparent displacement towards the southeast across ~330 m.
+# Visible contrail and apparent displacement from Red to Blue across ~320 m.
 # Note: For an airborne object at high altitude, apparent inter-band displacement
 # conflates true aircraft ground speed with stereoscopic parallax induced by satellite motion.
 
@@ -11,9 +11,10 @@ description = "High-altitude aircraft in cruising flight showing parallax and co
 
 [seeds]
 # Measured from unscaled crop raster (10 m/pixel)
-blue = [196, 224]
-green = [206, 239]
+# Chronological order of ground imaging: red -> green -> blue
 red = [212, 253]
+green = [206, 239]
+blue = [196, 224]
 
 [detection]
 median_kernel = 9

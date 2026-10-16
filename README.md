@@ -15,33 +15,35 @@
 
 The **MultiSpectral Instrument (MSI)** on board the European Space Agency's (ESA) **Sentinel-2** satellites is a **pushbroom sensor**. Unlike framing cameras that capture all spectral bands instantaneously, pushbroom sensors image the Earth via linear CCD detector arrays placed at slightly different along-track positions on the focal plane.
 
-As Sentinel-2 orbits at $\sim 7.2 \text{ km/s}$ at an altitude of $\sim 786 \text{ km}$, each spectral band records the ground with a minute **temporal delay** ($\Delta t$).
-
-According to **Krauß (2021)** (*ISPRS Annals*, vol. V-1-2021, pp. 17–23), the delays for the 10-meter spatial resolution bands referenced to Band 2 (Blue) are:
+As Sentinel-2 orbits at $\sim 7.2 \text{ km/s}$ in a sun-synchronous descending orbit (North to South), the physical layout of the focal plane dictates the along-track scanning sequence:
+- **Band 4 (Red)** is the leading detector in the flight direction: it images any ground coordinate **first** ($t = 0.000\text{ s}$).
+- **Band 3 (Green)** follows $0.478\text{ s}$ later.
+- **Band 8 (NIR)** follows $0.741\text{ s}$ later.
+- **Band 2 (Blue)** is the trailing detector: it images the ground target **last** ($t = 1.005\text{ s}$).
 
 ```mermaid
 timeline
-    title Sentinel-2 (10 m) Acquisition Sequence
-    t = 0.000 s : Band 02 (Blue, 490 nm)
-    t = 0.264 s : Band 08 (NIR, 842 nm)
-    t = 0.527 s : Band 03 (Green, 560 nm)
-    t = 1.005 s : Band 04 (Red, 665 nm)
+    title Sentinel-2 Ground Acquisition Sequence
+    t = 0.000 s : Band 04 (Red, 665 nm) - Leading
+    t = 0.478 s : Band 03 (Green, 560 nm)
+    t = 0.741 s : Band 08 (NIR, 842 nm)
+    t = 1.005 s : Band 02 (Blue, 490 nm) - Trailing
 ```
 
-| Band | Spectral Domain | Center Wavelength | Delay relative to B02 |
-|:---:|:---:|:---:|:---:|
-| **B02** | Blue | 490 nm | **0.000 s** (Acquired first) |
-| **B08** | Near Infrared (NIR) | 842 nm | **0.264 s** |
-| **B03** | Green | 560 nm | **0.527 s** |
-| **B04** | Red | 665 nm | **1.005 s** (Acquired last) |
+| Band | Spectral Domain | Center Wavelength | Ground Acquisition Delay | Role |
+|:---:|:---:|:---:|:---:|:---:|
+| **B04** | Red | 665 nm | **0.000 s** | First exposure (Leading) |
+| **B03** | Green | 560 nm | **0.478 s** | Intermediate exposure |
+| **B08** | Near Infrared (NIR) | 842 nm | **0.741 s** | Intermediate exposure |
+| **B02** | Blue | 490 nm | **1.005 s** | Final exposure (Trailing) |
 
 ### The Moving Object Signature
-When an object travels at high speed during this $\sim 1.005 \text{ s}$ window (such as an aircraft accelerating on a runway), it occupies **different ground locations** in each exposure. In an RGB composite (Red=B04, Green=B03, Blue=B02), this manifests as **three distinctly colored spots in a collinear row**:
-$$\text{Blue} \longrightarrow \text{Green} \longrightarrow \text{Red}$$
+When an object travels at high speed during this $\sim 1.005 \text{ s}$ window (such as an aircraft accelerating on a runway), it advances along the ground between sequential exposures. In an RGB composite (Red=B04, Green=B03, Blue=B02), this manifests as **three distinctly colored spots in a collinear row pointing in the direction of motion**:
+$$\mathbf{Red} \longrightarrow \mathbf{Green} \longrightarrow \mathbf{Blue}$$
 
 By estimating the **subpixel centroid** in each band, `s2motion` determines:
-1. **Displacement vector** ($\text{Blue} \to \text{Red}$) and ground distance in meters.
-2. **True geographic heading** ($0^\circ = \text{North}$, clockwise).
+1. **Displacement vector** ($\text{Red} \to \text{Blue}$) and ground distance in meters.
+2. **True geographic heading** ($0^\circ = \text{North}$, clockwise, $90^\circ = \text{East}$, $180^\circ = \text{South}$, $270^\circ = \text{West}$).
 3. **Ground velocity** with propagated uncertainty bounds.
 4. **Coherence diagnostics**: Collinearity offset of the Green detection and temporal projection consistency.
 
@@ -88,7 +90,7 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 
 ### Case 1: Aircraft Takeoff from Bilbao Airport (2026-08-12)
 - **Target**: Aircraft accelerating and rotating along runway 12/30 at Bilbao Airport (LEBB/BIO).
-- **Physical Context**: Runway 12/30 has an azimuth of $\approx 120^\circ / 300^\circ$. An aircraft taking off on runway 30 departs towards the northwest (heading $\approx 297^\circ - 300^\circ$).
+- **Physical Context**: Runway 12/30 has an azimuth of $\approx 120^\circ / 300^\circ$. An aircraft taking off towards the southeast on runway 12 heads at $\approx 117^\circ - 120^\circ$.
 
 ![Case 1: Aircraft Takeoff from Bilbao Airport](docs/img/loiu_2026-08-12_measured.png)
 
@@ -96,27 +98,28 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 ============================================================
 Sentinel-2 Moving Object Kinematics & Coherence Report
 ============================================================
+Direction:    Red -> Green -> Blue
 Distance:     82.4 m (range: 72.4 - 92.4 m, 1-sigma: +/-7.1 m)
-Heading:      297.4 deg clockwise from North (+/-7.0 deg)
+Heading:      117.4 deg clockwise from North (+/-7.0 deg)
 Velocity:     295 km/h (range: 254 - 338 km/h) [82.0 m/s]
 Delta t:      1.005 s (range: 0.985 - 1.025 s)
 ------------------------------------------------------------
 Coherence Diagnostics:
   - Green collinearity offset: 0.11 px (expected < ~1.0 px)
-  - Green relative position:  0.53 (expected: 0.52, delta: 0.01)
+  - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
   - Runway axis difference:   2.6 deg
 ============================================================
 ```
 
 **Interpretation**:
-- Ground speed of **$295 \text{ km/h}$** ($82 \text{ m/s}$) is typical for a commercial jet (e.g. A320 or B737) at rotation ($V_r$).
-- The measured heading of **$297.4^\circ$** aligns with runway 30 within **$2.6^\circ$**.
-- Subpixel collinearity offset of **$0.11\text{ px}$** and green fraction **$0.53$** (vs. theoretical $0.524$) confirm strict adherence to Sentinel-2 pushbroom physics.
+- Ground speed of **$295 \text{ km/h}$** ($82.0 \text{ m/s}$) corresponds to standard commercial jet rotation ($V_r$).
+- The measured heading of **$117.4^\circ$** aligns with the runway 12 axis within **$2.6^\circ$**.
+- Subpixel collinearity offset of **$0.11\text{ px}$** and green fraction **$0.47$** (vs. theoretical $0.476$) confirm strict adherence to Sentinel-2 pushbroom physics.
 
 ---
 
 ### Case 2: High-Altitude Cruising Aircraft with Contrail (2026-06-21)
-- **Target**: Aircraft at cruising altitude ($\sim 10 - 11 \text{ km}$) heading southeast across the Bilbao region, with a prominent condensation trail (contrail).
+- **Target**: Aircraft at cruising altitude ($\sim 10 - 11 \text{ km}$) heading northwest across the Bilbao region, with a prominent condensation trail (contrail).
 
 ![Case 2: High-Altitude Cruising Aircraft with Contrail](docs/img/loiu_2026-06-21_measured.png)
 
@@ -124,14 +127,15 @@ Coherence Diagnostics:
 ============================================================
 Sentinel-2 Moving Object Kinematics & Coherence Report
 ============================================================
+Direction:    Red -> Green -> Blue
 Distance:     321.4 m (range: 311.4 - 331.4 m, 1-sigma: +/-7.1 m)
-Heading:      150.4 deg clockwise from North (+/-1.8 deg)
+Heading:      330.4 deg clockwise from North (+/-1.8 deg)
 Velocity:     1151 km/h (range: 1094 - 1211 km/h) [319.8 m/s]
 Delta t:      1.005 s (range: 0.985 - 1.025 s)
 ------------------------------------------------------------
 Coherence Diagnostics:
   - Green collinearity offset: 0.54 px (expected < ~1.0 px)
-  - Green relative position:  0.54 (expected: 0.52, delta: 0.01)
+  - Green relative position:  0.46 (expected: 0.48, delta: 0.02)
   - Runway axis difference:   30.4 deg
 ============================================================
 ```
@@ -148,7 +152,7 @@ Coherence Diagnostics:
 1. **Remote Cloud-Optimized GeoTIFF (COG) Windowing**: Queries AWS Earth Search STAC (`sentinel-2-l2a`) and reads only the target bounding box via `rasterio.windows.from_bounds` without downloading full multi-gigabyte scenes.
 2. **Local Anomaly Extraction**: Subtracts a $9 \times 9$ median filter background to eliminate runway markings and static surface features.
 3. **Intensity-Weighted Subpixel Centroid**: Evaluates the center of mass of pixels $\ge 50\%$ peak intensity within a $3\text{ px}$ radius.
-4. **Vector Kinematics**: Computes displacement from Blue ($t=0.000\text{ s}$) to Red ($t=1.005\text{ s}$), heading, and ground velocity.
+4. **Vector Kinematics**: Computes displacement from Red ($t=0.000\text{ s}$) to Blue ($t=1.005\text{ s}$), heading, and ground velocity.
 5. **Rigorous Uncertainty Propagation**:
    - Accounts for $\pm 0.5\text{ px}$ subpixel localization error per endpoint.
    - Incorporates $\pm 2\%$ timing variation in $\Delta t$ resulting from optical distortion and satellite altitude perturbations ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).

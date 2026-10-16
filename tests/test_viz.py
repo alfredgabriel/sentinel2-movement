@@ -32,10 +32,10 @@ def test_create_annotated_figure_save(tmp_path) -> None:
         "green": np.ones((h, w), dtype=np.float32) * 50,
         "blue": np.ones((h, w), dtype=np.float32) * 50,
     }
-    centroids = {"blue": (20.0, 30.0), "green": (24.0, 28.0), "red": (28.0, 26.0)}
+    centroids = {"red": (20.0, 30.0), "green": (24.0, 28.0), "blue": (28.0, 26.0)}
     result = calculate_motion(
-        blue_centroid=centroids["blue"],
         red_centroid=centroids["red"],
+        blue_centroid=centroids["blue"],
         green_centroid=centroids["green"],
         runway_heading_deg=120.0,
     )

@@ -1,10 +1,13 @@
 """Measurement module for kinematics, coherence tests, and uncertainty propagation.
 
 Sentinel-2 captures spectral bands with slight sub-second time delays.
-By tracking the subpixel displacement of an object from Band 2 (Blue, acquired at t=0 s)
-to Band 4 (Red, acquired at t=1.005 s), this module computes:
+Because Band 4 (Red) is the leading detector along-track and Band 2 (Blue) is the trailing detector,
+a moving ground object is imaged sequentially in the chronological order:
+  Red (t = 0.000 s) -> Green (t = 0.478 s) -> Blue (t = 1.005 s)
+
+By tracking the subpixel displacement from Red (t = 0 s) to Blue (t = 1.005 s), this module computes:
   - Vector displacement and distance in meters
-  - Heading in degrees (0 = North, clockwise)
+  - Heading in degrees (0 = North, clockwise, 90 = East, 180 = South, 270 = West)
   - Speed in m/s and km/h with explicit uncertainty bounds
   - Collinearity and temporal sequence consistency checks
 """
@@ -15,7 +18,7 @@ from dataclasses import dataclass
 from s2motion.constants import (
     CENTROID_UNCERTAINTY_PX,
     DEFAULT_PIXEL_SIZE_M,
-    DELTA_T_BLUE_RED_S,
+    DELTA_T_RED_BLUE_S,
     DELTA_T_RELATIVE_UNCERTAINTY,
     EXPECTED_GREEN_RELATIVE_FRACTION,
 )
@@ -26,8 +29,8 @@ class MeasurementResult:
     """Rigorous kinematics and coherence result with propagated uncertainties."""
 
     # Displacements
-    dx_px: float  # Displacement along X (East-West), pixels: x_red - x_blue
-    dy_px: float  # Displacement along Y (North-South in raster coords): y_red - y_blue
+    dx_px: float  # Displacement along X (East-West), pixels: x_blue - x_red
+    dy_px: float  # Displacement along Y (North-South in raster coords): y_blue - y_red
     distance_px: float
     distance_m: float
     distance_min_m: float
@@ -64,6 +67,7 @@ class MeasurementResult:
             "============================================================",
             "Sentinel-2 Moving Object Kinematics & Coherence Report",
             "============================================================",
+            "Direction:    Red -> Green -> Blue",
             f"Distance:     {self.distance_m:.1f} m (range: {self.distance_min_m:.1f} - {self.distance_max_m:.1f} m, 1-sigma: +/-{self.distance_std_m:.1f} m)",
             f"Heading:      {self.heading_deg:.1f} deg clockwise from North (+/-{self.heading_uncertainty_deg:.1f} deg)",
             f"Velocity:     {self.speed_kmh:.0f} km/h (range: {self.speed_kmh_min:.0f} - {self.speed_kmh_max:.0f} km/h) [{self.speed_mps:.1f} m/s]",
@@ -80,32 +84,32 @@ class MeasurementResult:
 
 
 def calculate_motion(
-    blue_centroid: tuple[float, float],
     red_centroid: tuple[float, float],
+    blue_centroid: tuple[float, float],
     green_centroid: tuple[float, float] | None = None,
     pixel_size_m: float = DEFAULT_PIXEL_SIZE_M,
-    delta_t_s: float = DELTA_T_BLUE_RED_S,
+    delta_t_s: float = DELTA_T_RED_BLUE_S,
     delta_t_rel_uncertainty: float = DELTA_T_RELATIVE_UNCERTAINTY,
     centroid_uncertainty_px: float = CENTROID_UNCERTAINTY_PX,
     runway_heading_deg: float | None = None,
 ) -> MeasurementResult:
-    """Calculate displacement, heading, speed and coherence metrics.
+    """Calculate displacement, heading, speed and coherence metrics from Red to Blue.
 
-    Motion vector is defined from Blue (acquired first at t=0 s) to Red (acquired last at t=1.005 s).
+    Motion vector is defined from Red (t = 0.000 s) to Blue (t = 1.005 s).
 
     In image raster space:
         x increases Eastwards (+X)
         y increases Southwards (+Y, rows increasing downwards)
     Therefore:
-        dx_east = x_red - x_blue
-        dy_north = -(y_red - y_blue) = y_blue - y_red
+        dx_east = x_blue - x_red
+        dy_north = -(y_blue - y_red) = y_red - y_blue
 
     Args:
-        blue_centroid: (x, y) subpixel position in blue band (t=0 s).
-        red_centroid: (x, y) subpixel position in red band (t=1.005 s).
-        green_centroid: Optional (x, y) position in green band (t=0.527 s) for coherence.
+        red_centroid: (x, y) subpixel position in red band (t=0.000 s).
+        blue_centroid: (x, y) subpixel position in blue band (t=1.005 s).
+        green_centroid: Optional (x, y) position in green band (t=0.478 s) for coherence.
         pixel_size_m: Physical pixel size in meters (default: 10.0 m).
-        delta_t_s: Time difference between blue and red bands in seconds (default: 1.005 s).
+        delta_t_s: Time difference between red and blue bands in seconds (default: 1.005 s).
         delta_t_rel_uncertainty: Relative variation in delta t (default: 0.02 = +/-2%).
         centroid_uncertainty_px: Subpixel localization uncertainty per endpoint (default: 0.5 px).
         runway_heading_deg: Optional runway heading for alignment test.
@@ -113,12 +117,12 @@ def calculate_motion(
     Returns:
         MeasurementResult containing all computed values and bounds.
     """
-    bx, by = blue_centroid
     rx, ry = red_centroid
+    bx, by = blue_centroid
 
-    # Vector in raster pixel coordinates (Blue -> Red)
-    dx_px = rx - bx
-    dy_px = ry - by
+    # Vector in raster pixel coordinates (Red -> Blue)
+    dx_px = bx - rx
+    dy_px = by - ry
 
     # Distance
     dist_px = math.hypot(dx_px, dy_px)
@@ -128,7 +132,6 @@ def calculate_motion(
     dist_m = dist_px * pixel_size_m
 
     # Distance uncertainty propagation:
-    # Worst-case bounds: +/- (2 * centroid_uncertainty) in pixels
     worst_case_delta_px = 2.0 * centroid_uncertainty_px
     dist_min_m = max(0.0, (dist_px - worst_case_delta_px) * pixel_size_m)
     dist_max_m = (dist_px + worst_case_delta_px) * pixel_size_m
@@ -158,14 +161,14 @@ def calculate_motion(
     sin_arg = min(1.0, worst_case_delta_px / dist_px)
     heading_uncertainty_deg = math.degrees(math.asin(sin_arg))
 
-    # Coherence checks with Green band
+    # Coherence checks with Green band (Red -> Green relative to Red -> Blue)
     if green_centroid is not None:
         gx, gy = green_centroid
-        # Vector from Blue to Green
-        gdx_px = gx - bx
-        gdy_px = gy - by
+        # Vector from Red to Green
+        gdx_px = gx - rx
+        gdy_px = gy - ry
 
-        # Perpendicular distance from Green to the Blue-Red vector line (in pixels):
+        # Perpendicular distance from Green to the Red-Blue vector line (in pixels):
         # |v x gv| / |v|
         collinearity_px = abs(dx_px * gdy_px - dy_px * gdx_px) / dist_px
 

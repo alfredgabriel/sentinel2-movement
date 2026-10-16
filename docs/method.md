@@ -5,21 +5,30 @@
 Sentinel-2's MultiSpectral Instrument (MSI) is a pushbroom imaging spectrometer.
 Detectors for each spectral band are arranged as separate linear CCD arrays on the focal plane assembly (FPA), separated along the track of the satellite orbit.
 
-As the satellite orbits Earth at approximately $7.2 \text{ km/s}$ at an altitude of $\sim 786 \text{ km}$, a specific point on the surface is not imaged simultaneously across all bands. Instead, each band views the surface with a slight temporal delay $\Delta t$.
+As the satellite flies in its sun-synchronous descending orbit (travelling approximately from North to South at $\sim 7.2 \text{ km/s}$ at an altitude of $\sim 786 \text{ km}$), the focal plane geometry dictates which band scans a given ground coordinate first:
+- The detector line for **Band 4 (Red)** is positioned at the leading edge of the focal plane along the flight direction, encountering ground points **first**.
+- **Band 3 (Green)** follows sequentially.
+- **Band 8 (NIR)** follows next.
+- **Band 2 (Blue)** is located at the trailing edge of the focal plane, imaging the ground target **last**.
 
-According to **Krauß (2021)** (*ISPRS Annals*, vol. V-1-2021, pp. 17–23), the temporal delays of the 10 m spatial resolution bands referenced to Band 2 (Blue) are:
+### 1.1 Ground Acquisition Timing
+Based on **Krauß (2021)** (*ISPRS Annals*, vol. V-1-2021, pp. 17–23) and **Binet, Bergsma, & Poulain (2022)** (*ISPRS Annals*, vol. V-1-2022, pp. 57–66), the chronological ground acquisition sequence and time offsets referenced to the leading Red band ($t=0.000\text{ s}$) are:
 
-| Band Identifier | Spectral Region | Central Wavelength ($\lambda$) | Ground Sampling Distance | Acquisition Delay ($\Delta t$) |
-|:---------------:|:---------------:|:------------------------------:|:------------------------:|:------------------------------:|
-| **B02**         | Blue            | 490 nm                         | 10 m                     | **0.000 s**                    |
-| **B08**         | NIR             | 842 nm                         | 10 m                     | **0.264 s**                    |
-| **B03**         | Green           | 560 nm                         | 10 m                     | **0.527 s**                    |
-| **B04**         | Red             | 665 nm                         | 10 m                     | **1.005 s**                    |
+| Band Identifier | Spectral Region | Central Wavelength ($\lambda$) | Ground Sampling Distance | Ground Acquisition Time ($t$) |
+|:---------------:|:---------------:|:------------------------------:|:------------------------:|:----------------------------:|
+| **B04**         | Red             | 665 nm                         | 10 m                     | **$0.000 \text{ s}$ (Leading)** |
+| **B03**         | Green           | 560 nm                         | 10 m                     | **$0.478 \text{ s}$**        |
+| **B08**         | NIR             | 842 nm                         | 10 m                     | **$0.741 \text{ s}$**        |
+| **B02**         | Blue            | 490 nm                         | 10 m                     | **$1.005 \text{ s}$ (Trailing)** |
 
-Chronological acquisition sequence:
-$$\text{Blue (B02)} \longrightarrow \text{NIR (B08)} \longrightarrow \text{Green (B03)} \longrightarrow \text{Red (B04)}$$
+Chronological motion sequence on the ground:
+$$\mathbf{Red \; (B04)} \longrightarrow \mathbf{Green \; (B03)} \longrightarrow \mathbf{Blue \; (B02)}$$
 
-When an object moves on or near the ground with high speed (such as an aircraft during takeoff), its physical location changes between the sequential band exposures. In an RGB true-color composite (B04=Red, B03=Green, B02=Blue), this creates a characteristic chromatic dispersion pattern consisting of three colored spots separated along the trajectory.
+Total elapsed observation time between endpoints:
+$$\Delta t_{\text{total}} = t_{\text{blue}} - t_{\text{red}} = 1.005\text{ s}$$
+
+When an object moves on or near the ground with high speed (such as an aircraft accelerating along a runway), its physical position advances between sequential band exposures. In an RGB true-color composite (Red=B04, Green=B03, Blue=B02), this produces a characteristic rainbow trail of three colored dots aligned in direction of travel:
+$$\text{Red} \longrightarrow \text{Green} \longrightarrow \text{Blue}$$
 
 ---
 
@@ -39,26 +48,26 @@ $$\bar{x} = \frac{\sum_{(x, y) \in W} x \cdot w(x, y)}{\sum_{(x, y) \in W} w(x, 
 
 ---
 
-## 3. Kinematics Formulation
+## 3. Kinematics Formulation (Red $\to$ Blue)
 
-Let $p_{\text{blue}} = (x_b, y_b)$ and $p_{\text{red}} = (x_r, y_r)$ be the subpixel centroids in raster pixel coordinates (where $x$ increases Eastward and $y$ increases Southward down rows).
+Let $p_{\text{red}} = (x_r, y_r)$ at $t=0.000\text{ s}$ and $p_{\text{blue}} = (x_b, y_b)$ at $t=1.005\text{ s}$ be the subpixel centroids in raster pixel coordinates (where $x$ increases Eastward and $y$ increases Southward down rows).
 
 ### 3.1 Displacement and Distance
-The physical displacement between the first acquisition ($t_b = 0.000\text{ s}$) and last acquisition ($t_r = 1.005\text{ s}$) is:
-$$\Delta x_{\text{px}} = x_r - x_b$$
-$$\Delta y_{\text{px}} = y_r - y_b$$
+The motion vector points from the first detection (Red) to the final detection (Blue):
+$$\Delta x_{\text{px}} = x_b - x_r$$
+$$\Delta y_{\text{px}} = y_b - y_r$$
 $$d_{\text{px}} = \sqrt{\Delta x_{\text{px}}^2 + \Delta y_{\text{px}}^2}$$
 $$d_{\text{meters}} = d_{\text{px}} \times \text{GSD} \quad (\text{where GSD} = 10.0\text{ m/px})$$
 
 ### 3.2 Geographic Heading
 In the geographic coordinate frame:
-$$\Delta x_{\text{east}} = x_r - x_b$$
-$$\Delta y_{\text{north}} = -(y_r - y_b) = y_b - y_r$$
+$$\Delta x_{\text{east}} = x_b - x_r$$
+$$\Delta y_{\text{north}} = -(y_b - y_r) = y_r - y_b$$
 $$\theta = \text{atan2}(\Delta x_{\text{east}}, \Delta y_{\text{north}}) \pmod{360^\circ}$$
 Where $\theta = 0^\circ$ is true North, $90^\circ$ is East, $180^\circ$ is South, and $270^\circ$ is West.
 
 ### 3.3 Velocity
-$$\Delta t = t_{\text{red}} - t_{\text{blue}} = 1.005\text{ s}$$
+$$\Delta t = 1.005\text{ s}$$
 $$v = \frac{d_{\text{meters}}}{\Delta t} \quad [\text{m/s}], \quad v_{\text{km/h}} = v \times 3.6 \quad [\text{km/h}]$$
 
 ---
@@ -66,27 +75,27 @@ $$v = \frac{d_{\text{meters}}}{\Delta t} \quad [\text{m/s}], \quad v_{\text{km/h
 ## 4. Coherence and Quality Controls
 
 ### 4.1 Collinearity Test
-For an object moving in a straight line during the $1.005\text{ s}$ acquisition window, the Green centroid ($p_{\text{green}} = (x_g, y_g)$) must lie on the line connecting $p_{\text{blue}}$ and $p_{\text{red}}$.
+For an object moving in a straight line during the $1.005\text{ s}$ window, the Green centroid ($p_{\text{green}} = (x_g, y_g)$) must lie on the vector line connecting $p_{\text{red}}$ and $p_{\text{blue}}$.
 
-Let $\vec{v} = p_{\text{red}} - p_{\text{blue}}$ and $\vec{g} = p_{\text{green}} - p_{\text{blue}}$. The perpendicular cross-track deviation is:
-$$d_\perp = \frac{|v_x g_y - v_y g_x|}{\|\vec{v}\|} \quad [\text{pixels}]$$
+Let $\vec{v} = p_{\text{blue}} - p_{\text{red}}$ and $\vec{gv} = p_{\text{green}} - p_{\text{red}}$. The perpendicular cross-track deviation is:
+$$d_\perp = \frac{|v_x gv_y - v_y gv_x|}{\|\vec{v}\|} \quad [\text{pixels}]$$
 Acceptance criterion: $d_\perp \le 1.0 \text{ px}$.
 
 ### 4.2 Temporal Position Ratio
-Because Green is acquired at $t = 0.527\text{ s}$, the longitudinal projection fraction along the path is theoretically:
-$$f_{\text{expected}} = \frac{t_{\text{green}} - t_{\text{blue}}}{t_{\text{red}} - t_{\text{blue}}} = \frac{0.527\text{ s}}{1.005\text{ s}} \approx 0.5244$$
+Because Green is acquired at $t = 0.478\text{ s}$ after Red ($t = 0.000\text{ s}$), the longitudinal projection fraction along the path is theoretically:
+$$f_{\text{expected}} = \frac{t_{\text{green}} - t_{\text{red}}}{t_{\text{blue}} - t_{\text{red}}} = \frac{0.478\text{ s}}{1.005\text{ s}} \approx 0.4756$$
 The observed projection fraction is:
-$$f_{\text{observed}} = \frac{\vec{g} \cdot \vec{v}}{\|\vec{v}\|^2}$$
-A close agreement ($|f_{\text{observed}} - 0.5244| < 0.1$) confirms that the observation corresponds to a single object moving at constant speed.
+$$f_{\text{observed}} = \frac{\vec{gv} \cdot \vec{v}}{\|\vec{v}\|^2}$$
+A close agreement ($|f_{\text{observed}} - 0.4756| < 0.1$) confirms that the observation corresponds to a single object moving at constant speed.
 
 ---
 
 ## 5. Uncertainty Propagation
 
-Following **Binet, Bergsma, & Poulain (2022)** (*ISPRS Annals*, vol. V-1-2022, pp. 57–66), timing delays can vary by up to $\pm 2\%$ across the swath due to optical distortion, satellite altitude variations, and attitude perturbations:
+Following **Binet, Bergsma, & Poulain (2022)**, timing delays can vary by up to $\pm 2\%$ across the swath:
 $$\Delta t \in [1.005 \times 0.98, \, 1.005 \times 1.02] = [0.9849\text{ s}, \, 1.0251\text{ s}]$$
 
-Subpixel centroid estimation has a typical uncertainty of $\delta_{\text{centroid}} \approx \pm 0.5\text{ px}$ per endpoint. The worst-case bound on distance is:
+Subpixel centroid estimation has an estimated uncertainty of $\delta_{\text{centroid}} \approx \pm 0.5\text{ px}$ per endpoint. The worst-case bounds on distance are:
 $$d_{\min} = \max(0, d_{\text{px}} - 2 \delta_{\text{centroid}}) \times 10\text{ m}$$
 $$d_{\max} = (d_{\text{px}} + 2 \delta_{\text{centroid}}) \times 10\text{ m}$$
 

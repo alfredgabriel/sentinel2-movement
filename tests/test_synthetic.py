@@ -1,7 +1,8 @@
 """Synthetic end-to-end test with a moving Gaussian blob.
 
 Verifies that the detection and measurement pipeline recovers the known velocity
-within < 5 % error and known heading within < 2 deg, simulating Sentinel-2 pushbroom delays.
+within < 5 % error and known heading within < 2 deg, simulating Sentinel-2 pushbroom delays
+in chronological ground order: Red -> Green -> Blue.
 """
 
 import math
@@ -9,24 +10,24 @@ import math
 import numpy as np
 
 from s2motion.constants import (
-    BAND_DELAYS_S,
     DEFAULT_PIXEL_SIZE_M,
     EXPECTED_GREEN_RELATIVE_FRACTION,
+    GROUND_ACQUISITION_TIMING_S,
 )
 from s2motion.detect import detect_all_centroids
 from s2motion.measure import calculate_motion
 
 
 def test_synthetic_moving_aircraft_recovery() -> None:
-    """Simulate an aircraft moving at 270 km/h with 297 deg heading (takeoff)."""
+    """Simulate an aircraft moving at 270 km/h with 120 deg heading (runway 12 takeoff)."""
     # Ground truth parameters
     true_speed_kmh = 270.0
     true_speed_mps = true_speed_kmh / 3.6  # 75.0 m/s
     true_speed_px_per_s = true_speed_mps / DEFAULT_PIXEL_SIZE_M  # 7.5 px/s
-    true_heading_deg = 297.0  # Approx runway 30 orientation
+    true_heading_deg = 120.0  # Runway 12 orientation
 
-    # Starting position at t=0 (Blue) in a 120x120 raster
-    x0, y0 = 70.0, 70.0
+    # Starting position at t=0 (Red, leading acquisition) in a 120x120 raster
+    x0, y0 = 50.0, 50.0
 
     # Direction components
     heading_rad = math.radians(true_heading_deg)
@@ -37,7 +38,7 @@ def test_synthetic_moving_aircraft_recovery() -> None:
     vx_raster = vx_east
     vy_raster = -vy_north
 
-    # Generate synthetic bands with pushbroom delays
+    # Generate synthetic bands with pushbroom ground acquisition order: Red -> Green -> Blue
     size = 120
     ys, xs = np.mgrid[0:size, 0:size]
     sigma = 1.3
@@ -47,8 +48,8 @@ def test_synthetic_moving_aircraft_recovery() -> None:
     bands: dict[str, np.ndarray] = {}
     seeds: dict[str, tuple[float, float]] = {}
 
-    for band_name, code in [("blue", "B02"), ("green", "B03"), ("red", "B04")]:
-        t = BAND_DELAYS_S[code]
+    for band_name in ("red", "green", "blue"):
+        t = GROUND_ACQUISITION_TIMING_S[band_name]
         true_x = x0 + vx_raster * t
         true_y = y0 + vy_raster * t
 
@@ -68,10 +69,10 @@ def test_synthetic_moving_aircraft_recovery() -> None:
     # Step 1: Detect subpixel centroids
     detected_centroids = detect_all_centroids(bands, seeds, radius=3, threshold_ratio=0.5)
 
-    # Step 2: Compute kinematics
+    # Step 2: Compute kinematics (Red -> Blue)
     result = calculate_motion(
-        blue_centroid=detected_centroids["blue"],
         red_centroid=detected_centroids["red"],
+        blue_centroid=detected_centroids["blue"],
         green_centroid=detected_centroids["green"],
         pixel_size_m=DEFAULT_PIXEL_SIZE_M,
         runway_heading_deg=120.0,
@@ -94,7 +95,7 @@ def test_synthetic_moving_aircraft_recovery() -> None:
         f"Collinearity offset {result.collinearity_px:.2f} px too large"
     )
 
-    # Verification: green relative position close to theoretical ~0.524
+    # Verification: green relative position close to theoretical ~0.476
     assert abs(result.green_relative_fraction - EXPECTED_GREEN_RELATIVE_FRACTION) < 0.05, (
         f"Green relative fraction {result.green_relative_fraction:.3f} deviates from expected"
     )
