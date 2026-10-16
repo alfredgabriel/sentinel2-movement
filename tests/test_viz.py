@@ -51,3 +51,50 @@ def test_create_annotated_figure_save(tmp_path) -> None:
     assert fig is not None
     assert out_file.exists()
     assert out_file.stat().st_size > 0
+
+
+def test_create_annotated_figure_with_aerodynamics(tmp_path) -> None:
+    """Verify annotated figure generation with weather and aerodynamic telemetry overlays."""
+    from s2motion.weather import WeatherObservation, compute_aerodynamics
+
+    h, w = 60, 60
+    bands = {
+        "red": np.ones((h, w), dtype=np.float32) * 50,
+        "green": np.ones((h, w), dtype=np.float32) * 50,
+        "blue": np.ones((h, w), dtype=np.float32) * 50,
+    }
+    centroids = {"red": (20.0, 30.0), "green": (24.0, 28.0), "blue": (28.0, 26.0)}
+    obs = WeatherObservation(
+        timestamp_utc="2026-08-12T11:00",
+        latitude=43.301,
+        longitude=-2.911,
+        temperature_c=28.7,
+        surface_pressure_hpa=1014.3,
+        wind_speed_mps=10.2 / 3.6,
+        wind_direction_deg=14.0,
+    )
+    aero = compute_aerodynamics(
+        ground_speed_mps=80.0,
+        heading_deg=117.4,
+        weather=obs,
+        elevation_m=42.0,
+    )
+    result = calculate_motion(
+        red_centroid=centroids["red"],
+        blue_centroid=centroids["blue"],
+        green_centroid=centroids["green"],
+        runway_heading_deg=120.0,
+        aero=aero,
+    )
+
+    out_file = tmp_path / "test_aero_figure.png"
+    fig = create_annotated_figure(
+        bands=bands,
+        centroids=centroids,
+        result=result,
+        title="Test Aero Figure",
+        out_path=out_file,
+    )
+    assert fig is not None
+    assert out_file.exists()
+    assert out_file.stat().st_size > 0

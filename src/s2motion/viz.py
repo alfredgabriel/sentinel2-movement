@@ -1,6 +1,7 @@
 """Visualization module for RGB composites, multi-band panels, and annotated figures."""
 
 import logging
+import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -131,7 +132,7 @@ def create_annotated_figure(
     metrics_text = (
         f"Direction: Red -> Green -> Blue\n"
         f"Velocity:  {result.speed_kmh:.0f} km/h [{result.speed_kmh_min:.0f} - {result.speed_kmh_max:.0f} km/h]\n"
-        f"Heading:   {result.heading_deg:.1f}° (N={0}°, clockwise)\n"
+        f"Heading:   {result.heading_deg:.1f}° (N=0°, clockwise)\n"
         f"Delta t:   {result.delta_t_s:.3f} s (+/-2%)\n"
         f"Collinearity: {result.collinearity_px:.2f} px\n"
         f"Green pos:    {result.green_relative_fraction:.2f} (exp: {result.expected_green_fraction:.2f})"
@@ -139,12 +140,61 @@ def create_annotated_figure(
     if result.runway_diff_deg is not None:
         metrics_text += f"\nRunway axis diff: {result.runway_diff_deg:.1f}°"
 
+    if result.aero is not None:
+        a = result.aero
+        obs = a.weather
+        metrics_text += (
+            f"\n-- Meteorological & Aerodynamics --\n"
+            f"Wind:      {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°\n"
+            f"Headwind:  {a.headwind_mps * 3.6:+.1f} km/h ({a.headwind_mps * 1.94384:+.1f} kt) | Cross: {a.crosswind_mps * 3.6:+.1f} km/h\n"
+            f"Airspeeds: TAS = {a.true_airspeed_kmh:.0f} km/h [{a.true_airspeed_knots:.0f} kt] (GS: {result.speed_kmh:.0f})\n"
+            f"Density:   DA = {a.density_altitude_ft:.0f} ft ({a.density_delta_ft:+.0f} ft vs field)\n"
+            f"Alignment: {'Favorable headwind' if a.is_favorable_headwind else 'Tailwind component present'}"
+        )
+
+        # Draw wind indicator arrow on top-left of main panel
+        wind_to_rad = math.radians(obs.wind_direction_deg + 180.0)
+        arrow_len = 0.07
+        x_base, y_base = 0.17, 0.91
+        x_tip = x_base + arrow_len * math.sin(wind_to_rad)
+        y_tip = y_base + arrow_len * math.cos(wind_to_rad)
+
+        ax_main.text(
+            0.03,
+            0.96,
+            f"Wind: {obs.wind_speed_kmh:.1f} km/h\nfrom {obs.wind_direction_deg:.0f}°",
+            transform=ax_main.transAxes,
+            fontsize=8.5,
+            fontweight="bold",
+            color="cyan",
+            verticalalignment="top",
+            bbox={
+                "boxstyle": "round,pad=0.3",
+                "facecolor": "#111111",
+                "alpha": 0.85,
+                "edgecolor": "cyan",
+            },
+        )
+        ax_main.annotate(
+            "",
+            xy=(x_tip, y_tip),
+            xytext=(x_base, y_base),
+            xycoords="axes fraction",
+            textcoords="axes fraction",
+            arrowprops={
+                "arrowstyle": "-|>",
+                "color": "cyan",
+                "lw": 2.2,
+                "mutation_scale": 15,
+            },
+        )
+
     ax_main.text(
         0.03,
         0.04,
         metrics_text,
         transform=ax_main.transAxes,
-        fontsize=9.5,
+        fontsize=8.5,
         fontfamily="monospace",
         color="white",
         bbox={
