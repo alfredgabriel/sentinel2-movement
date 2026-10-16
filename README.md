@@ -46,6 +46,7 @@ By estimating the **subpixel centroid** in each band, `s2motion` determines:
 2. **True geographic heading** ($0^\circ = \text{North}$, clockwise, $90^\circ = \text{East}$, $180^\circ = \text{South}$, $270^\circ = \text{West}$).
 3. **Ground velocity** with propagated uncertainty bounds.
 4. **Coherence diagnostics**: Collinearity offset of the Green detection and temporal projection consistency.
+5. **Aerodynamic & Meteorological Fusion**: Queries historical surface weather (Open-Meteo / ERA5 reanalysis) to decompose headwind/crosswind along track, resolve True Airspeed (TAS), and calculate Density Altitude (DA).
 
 ---
 
@@ -80,8 +81,8 @@ s2motion crops --start 2026-08-01 --end 2026-08-15 --max-cloud 10 --out outputs/
 # 2. Inspect a scene interactively to locate coordinate seeds (click logs x, y)
 s2motion view --config examples/loiu_2026-08-12.toml
 
-# 3. Detect subpixel centroids, calculate velocity, and export publication figure
-s2motion measure --config examples/loiu_2026-08-12.toml
+# 3. Detect subpixel centroids, calculate velocity, and export publication figure with weather telemetry
+s2motion measure --config examples/loiu_2026-08-12.toml --weather
 ```
 
 ---
@@ -95,7 +96,7 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 #### Full Scene Overview (Uncropped Crop of Bilbao Airport Area)
 ![Full Scene Overview - 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
 
-#### Subpixel Kinematics & Inter-Band Analysis
+#### Subpixel Kinematics & Inter-Band Analysis (with Live Weather Fusion)
 ![Case 1: Aircraft Takeoff from Bilbao Airport](docs/img/loiu_2026-08-12_measured.png)
 
 ```text
@@ -112,13 +113,21 @@ Coherence Diagnostics:
   - Green collinearity offset: 0.11 px (expected < ~1.0 px)
   - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
   - Runway axis difference:   2.6 deg
+------------------------------------------------------------
+Aeronautical & Weather Telemetry (Open-Meteo):
+  - Surface Weather:  28.7 °C | 1014.4 hPa | Wind 10.2 km/h (5.5 kt) from 14°
+  - Wind Components:  Headwind: -2.4 km/h (-1.3 kt) | Crosswind: -9.9 km/h
+  - Air Density:      Density Altitude: 1776 ft (+1638 ft vs field elevation)
+  - True Airspeed:    TAS: 293 km/h [158 kt] (Ground Speed: 295 km/h)
+  - Wind Alignment:   Tailwind component present
 ============================================================
 ```
 
-**Interpretation**:
-- Ground speed of **$295 \text{ km/h}$** ($82.0 \text{ m/s}$) corresponds to standard commercial jet rotation ($V_r$).
-- The measured heading of **$117.4^\circ$** aligns with the runway 12 axis within **$2.6^\circ$**.
-- Subpixel collinearity offset of **$0.11\text{ px}$** and green fraction **$0.47$** (vs. theoretical $0.476$) confirm strict adherence to Sentinel-2 pushbroom physics.
+**Aerodynamic & Physical Interpretation**:
+- **Rotation speed**: Ground speed of **$295 \text{ km/h}$** ($82.0 \text{ m/s}$) corresponds to standard commercial twin-jet rotation ($V_r$).
+- **Runway alignment**: Measured heading of **$117.4^\circ$** aligns with the runway 12 centerline within **$2.6^\circ$**.
+- **Atmospheric density impact**: At $28.7^\circ\text{C}$ on a warm August day, the airport's **Density Altitude** rises to **$1,776\text{ ft}$** ($+1,638\text{ ft}$ above the field elevation of $138\text{ ft}$). Thinner air reduces wing lift and engine thrust, explaining the extended takeoff ground roll and high liftoff speed.
+- **Wind resolution**: A slight tailwind component ($-2.4\text{ km/h}$) reduces True Airspeed to **$293\text{ km/h}$** ($158\text{ kt}$), requiring the aircraft to accelerate slightly faster across the ground to attain liftoff aerodynamic pressure.
 
 ---
 
@@ -165,6 +174,7 @@ Coherence Diagnostics:
    - Accounts for $\pm 0.5\text{ px}$ subpixel localization error per endpoint.
    - Incorporates $\pm 2\%$ timing variation in $\Delta t$ resulting from optical distortion and satellite altitude perturbations ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - Always reports velocity as an explicit interval $[v_{\min}, v_{\max}]$, never as an isolated point value.
+6. **Atmospheric & Aerodynamic Fusion**: Integrates Open-Meteo reanalysis to resolve headwind/crosswind components, true airspeed (TAS), and density altitude (DA).
 
 *For full mathematical derivations, see [docs/method.md](docs/method.md).*
 

@@ -52,8 +52,8 @@ s2motion crops --start 2026-08-01 --end 2026-08-15 --max-cloud 10 --out outputs/
 # 2. Abrir el visor interactivo para localizar coordenadas de semillas
 s2motion view --config examples/loiu_2026-08-12.toml
 
-# 3. Medir velocidad, rumbo, coherencia e incertidumbre con figura anotada
-s2motion measure --config examples/loiu_2026-08-12.toml
+# 3. Medir velocidad, rumbo, coherencia e incertidumbre con figura anotada y telemetría meteorológica
+s2motion measure --config examples/loiu_2026-08-12.toml --weather
 ```
 
 ---
@@ -67,7 +67,7 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 #### Vista general del recorte completo (Aeropuerto de Bilbao / Loiu)
 ![Vista general 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
 
-#### Análisis cinemático subpíxel y dispersión entre bandas
+#### Análisis cinemático subpíxel y fusión aerodinámica/meteorológica
 ![Despegue Loiu 2026-08-12](docs/img/loiu_2026-08-12_measured.png)
 
 ```text
@@ -84,8 +84,21 @@ Coherence Diagnostics:
   - Green collinearity offset: 0.11 px (expected < ~1.0 px)
   - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
   - Runway axis difference:   2.6 deg (alineado pista 12)
+------------------------------------------------------------
+Aeronautical & Weather Telemetry (Open-Meteo):
+  - Surface Weather:  28.7 °C | 1014.4 hPa | Wind 10.2 km/h (5.5 kt) from 14°
+  - Wind Components:  Headwind: -2.4 km/h (-1.3 kt) | Crosswind: -9.9 km/h
+  - Air Density:      Density Altitude: 1776 ft (+1638 ft vs field elevation)
+  - True Airspeed:    TAS: 293 km/h [158 kt] (Ground Speed: 295 km/h)
+  - Wind Alignment:   Tailwind component present
 ============================================================
 ```
+
+**Interpretación física y aerodinámica**:
+- **Velocidad de rotación ($V_r$)**: $295\text{ km/h}$ ($82.0\text{ m/s}$) es compatible con la rotación de un bimotor comercial de medio alcance (tipo A320 o B737).
+- **Rumbo**: $117.4^\circ$, alineado a menos de $2.6^\circ$ del eje de pista 12 ($120.0^\circ$).
+- **Impacto de la densidad del aire (Altitud Densimétrica)**: A $28.7^\circ\text{C}$ en pleno mediodía estival, la **Altitud de Densidad** se eleva a **$1.776\text{ ft}$** ($+1.638\text{ ft}$ sobre los $138\text{ ft}$ de elevación del campo). El aire menos denso reduce la sustentación y el empuje de las turbinas, lo que explica la alta velocidad de carrera antes del despegue.
+- **Descomposición del viento**: Con viento de $10.2\text{ km/h}$ desde $014^\circ$, la componente de viento de cola ($-2.4\text{ km/h}$) reduce la velocidad respecto al aire (**TAS = $293\text{ km/h}$ / $158\text{ kt}$**), requiriendo que la aeronave ruede más rápido sobre el terreno para generar la sustentación aerodinámica necesaria.
 
 ---
 
@@ -129,6 +142,7 @@ Coherence Diagnostics:
    - Error de localización de centroide $\pm 0.5\text{ px}$ por extremo.
    - Variabilidad temporal en $\Delta t$ de hasta $\pm 2\%$ por distorsión óptica y altura del satélite ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - La velocidad siempre se presenta en un rango de confianza $[v_{\min}, v_{\max}]$.
+6. **Fusión meteorológica y aerodinámica**: Consulta a Open-Meteo para calcular componentes de viento en pista, velocidad verdadera (TAS) y altitud de densidad (DA).
 
 ---
 

@@ -84,15 +84,17 @@ class MeasurementResult:
 
         if self.aero is not None:
             obs = self.aero.weather
-            lines.extend([
-                "------------------------------------------------------------",
-                "Aeronautical & Weather Telemetry (Open-Meteo):",
-                f"  - Surface Weather:  {obs.temperature_c:.1f} °C | {obs.surface_pressure_hpa:.1f} hPa | Wind {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°",
-                f"  - Wind Components:  Headwind: {self.aero.headwind_mps * 3.6:+.1f} km/h ({self.aero.headwind_mps * 1.94384:+.1f} kt) | Crosswind: {self.aero.crosswind_mps * 3.6:+.1f} km/h",
-                f"  - Air Density:      Density Altitude: {self.aero.density_altitude_ft:.0f} ft ({self.aero.density_delta_ft:+.0f} ft vs field elevation)",
-                f"  - True Airspeed:    TAS: {self.aero.true_airspeed_kmh:.0f} km/h [{self.aero.true_airspeed_knots:.0f} kt] (Ground Speed: {self.speed_kmh:.0f} km/h)",
-                f"  - Wind Alignment:   {'Favorable headwind' if self.aero.is_favorable_headwind else 'Tailwind component present'}",
-            ])
+            lines.extend(
+                [
+                    "------------------------------------------------------------",
+                    "Aeronautical & Weather Telemetry (Open-Meteo):",
+                    f"  - Surface Weather:  {obs.temperature_c:.1f} °C | {obs.surface_pressure_hpa:.1f} hPa | Wind {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°",
+                    f"  - Wind Components:  Headwind: {self.aero.headwind_mps * 3.6:+.1f} km/h ({self.aero.headwind_mps * 1.94384:+.1f} kt) | Crosswind: {self.aero.crosswind_mps * 3.6:+.1f} km/h",
+                    f"  - Air Density:      Density Altitude: {self.aero.density_altitude_ft:.0f} ft ({self.aero.density_delta_ft:+.0f} ft vs field elevation)",
+                    f"  - True Airspeed:    TAS: {self.aero.true_airspeed_kmh:.0f} km/h [{self.aero.true_airspeed_knots:.0f} kt] (Ground Speed: {self.speed_kmh:.0f} km/h)",
+                    f"  - Wind Alignment:   {'Favorable headwind' if self.aero.is_favorable_headwind else 'Tailwind component present'}",
+                ]
+            )
 
         lines.append("============================================================")
         return "\n".join(lines)

@@ -105,3 +105,54 @@ $$\sigma_d = \sqrt{2} \cdot \sigma_{\text{centroid}} \cdot \text{GSD} = \sqrt{2}
 The rigorous speed interval is:
 $$v_{\min} = \frac{d_{\min}}{\Delta t_{\max}}, \quad v_{\max} = \frac{d_{\max}}{\Delta t_{\min}}$$
 No velocity estimate is ever reported as an isolated point value without this confidence range.
+
+---
+
+## 6. Aerodynamic & Meteorological Multimodal Fusion
+
+Ground velocity ($v_{\text{ground}}$) measured from satellite parallax captures motion relative to the Earth's surface. However, aircraft aerodynamics and performance (lift, drag, takeoff ground roll, and climb gradient) depend strictly on the **True Airspeed (TAS)** and **Air Density ($\rho$)**.
+
+By querying historical surface meteorological reanalysis (via the Open-Meteo API calibrated with ECMWF ERA5), `s2motion` fuses atmospheric state variables with orbital observations.
+
+### 6.1 Wind Decomposition along Runway Track
+
+Let $v_{\text{wind}}$ be the surface wind speed and $\theta_{\text{wind}}$ be the meteorological wind origin angle ($0^\circ$ = North, $90^\circ$ = East, angle *from* which the wind blows).
+For an aircraft with ground track heading $\theta_{\text{track}}$:
+
+$$\Delta \theta = \theta_{\text{wind}} - \theta_{\text{track}}$$
+
+The wind vector is decomposed into:
+- **Headwind Component ($v_{\text{hw}}$)**:
+  $$v_{\text{hw}} = v_{\text{wind}} \cdot \cos(\Delta \theta)$$
+  Where $v_{\text{hw}} > 0$ denotes a favorable headwind and $v_{\text{hw}} < 0$ denotes an unfavorable tailwind.
+
+- **Crosswind Component ($v_{\text{xw}}$)**:
+  $$v_{\text{xw}} = v_{\text{wind}} \cdot \sin(\Delta \theta)$$
+  Where $v_{\text{xw}} > 0$ denotes crosswind from the right and $v_{\text{xw}} < 0$ from the left.
+
+### 6.2 True Airspeed (TAS) Resolution
+
+In aeronautical flight mechanics, the relationship between True Airspeed ($v_{\text{TAS}}$), Ground Speed ($v_{\text{GS}}$), and the headwind component along track is:
+
+$$v_{\text{TAS}} = v_{\text{GS}} + v_{\text{hw}} = v_{\text{GS}} + v_{\text{wind}} \cdot \cos(\theta_{\text{wind}} - \theta_{\text{track}})$$
+
+For example, when an aircraft takes off with a slight tailwind ($v_{\text{hw}} = -2.4\text{ km/h}$), its True Airspeed is slightly lower than its Ground Speed ($293\text{ km/h}$ vs $295\text{ km/h}$), requiring a higher ground speed to generate the necessary takeoff lift.
+
+### 6.3 Density Altitude (DA) & Performance Impact
+
+Under the International Standard Atmosphere (ICAO ISA):
+- Sea level standard pressure: $P_0 = 1013.25\text{ hPa}$
+- Sea level standard temperature: $T_0 = 15.0^\circ\text{C}$
+- Lapse rate: $L = 0.0065\text{ K/m} \approx 1.98^\circ\text{C} / 1,000\text{ ft}$
+
+From station elevation ($h_{\text{elev}}$) and observed surface pressure ($QNH$):
+
+$$\text{PA} = h_{\text{elev}} + (1013.25 - QNH) \times 27.2\text{ ft/hPa}$$
+
+The ISA standard temperature at this pressure altitude is:
+$$T_{\text{ISA}} = 15^\circ\text{C} - 0.0019812 \times \text{PA}_{[\text{ft}]}$$
+
+The **Density Altitude** (the altitude in the standard atmosphere at which the air density equals the observed air density) is:
+$$\text{DA} = \text{PA} + 118.8 \cdot (T_{\text{observed}} - T_{\text{ISA}})$$
+
+**Physical Significance:** High temperatures cause the air density to decrease drastically. On a hot summer day ($28.7^\circ\text{C}$ at Bilbao Airport, elevation $138\text{ ft}$), the Density Altitude increases to $1,776\text{ ft}$ ($+1,638\text{ ft}$ above physical ground elevation). The engines produce less thrust and the wings generate less lift, explaining the aircraft's high ground speed of $295\text{ km/h}$ ($159\text{ kt}$) during rotation.
