@@ -45,6 +45,25 @@ def test_cli_parser_measure() -> None:
     assert args.config == "examples/loiu_2026-08-12.toml"
     assert args.runway_heading == 120.0
     assert args.out == "docs/img/output.png"
+    assert args.weather is False
+    assert args.elevation is None
+
+
+def test_cli_parser_measure_with_weather() -> None:
+    """Verify measure subcommand with --weather and --elevation flags."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "measure",
+            "--config",
+            "examples/loiu_2026-08-12.toml",
+            "--weather",
+            "--elevation",
+            "42.0",
+        ]
+    )
+    assert args.weather is True
+    assert args.elevation == 42.0
 
 
 def test_load_toml_config_valid() -> None:
@@ -54,6 +73,10 @@ def test_load_toml_config_valid() -> None:
     assert cfg["seeds"]["red"] == [66, 158]
     assert cfg["seeds"]["green"] == [70, 160]
     assert cfg["seeds"]["blue"] == [74, 162]
+    assert "weather" in cfg
+    assert cfg["weather"]["enabled"] is True
+    assert cfg["weather"]["elevation_m"] == 42.0
+    assert abs(cfg["weather"]["latitude"] - 43.301) < 1e-4
 
 
 def test_load_toml_config_not_found() -> None:

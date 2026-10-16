@@ -23,3 +23,10 @@ threshold_ratio = 0.5
 
 [output]
 figure = "docs/img/loiu_2026-08-12_measured.png"
+
+[weather]
+# Historical meteorological fusion via Open-Meteo API
+enabled = true
+elevation_m = 42.0
+latitude = 43.301
+longitude = -2.911

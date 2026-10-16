@@ -7,6 +7,7 @@ Subcommands:
 """
 
 import argparse
+import dataclasses
 import logging
 import sys
 from pathlib import Path
@@ -29,6 +30,7 @@ from s2motion.detect import detect_all_centroids
 from s2motion.measure import calculate_motion
 from s2motion.stac import get_scene_by_date, read_scene_bands, search_scenes
 from s2motion.viz import create_annotated_figure, create_rgb_composite, show_interactive_viewer
+from s2motion.weather import compute_aerodynamics, fetch_historical_weather
 
 logger = logging.getLogger("s2motion")
 
@@ -115,6 +117,11 @@ def cmd_measure(args: argparse.Namespace) -> int:
     title = "Sentinel-2 Moving Object Analysis"
 
     # 1. Load configuration file if specified
+    weather_enabled = False
+    weather_elevation_m = 42.0
+    weather_lat: float | None = None
+    weather_lon: float | None = None
+
     if args.config:
         cfg = load_toml_config(Path(args.config))
         scene_cfg = cfg.get("scene", {})
@@ -134,6 +141,12 @@ def cmd_measure(args: argparse.Namespace) -> int:
         radius = det_cfg.get("radius", radius)
         threshold_ratio = det_cfg.get("threshold_ratio", threshold_ratio)
 
+        weather_cfg = cfg.get("weather", {})
+        weather_enabled = weather_cfg.get("enabled", weather_enabled)
+        weather_elevation_m = weather_cfg.get("elevation_m", weather_elevation_m)
+        weather_lat = weather_cfg.get("latitude", weather_lat)
+        weather_lon = weather_cfg.get("longitude", weather_lon)
+
         out_cfg = cfg.get("output", {})
         if "figure" in out_cfg:
             out_fig = Path(out_cfg["figure"])
@@ -145,6 +158,10 @@ def cmd_measure(args: argparse.Namespace) -> int:
         bbox = tuple(args.bbox)
     if args.runway_heading is not None:
         runway_heading = args.runway_heading
+    if getattr(args, "weather", False):
+        weather_enabled = True
+    if getattr(args, "elevation", None) is not None:
+        weather_elevation_m = args.elevation
     if args.out:
         out_fig = Path(args.out)
 
@@ -181,6 +198,37 @@ def cmd_measure(args: argparse.Namespace) -> int:
         pixel_size_m=DEFAULT_PIXEL_SIZE_M,
         runway_heading_deg=runway_heading,
     )
+
+    if weather_enabled:
+        w_lat = weather_lat if weather_lat is not None else (bbox[1] + bbox[3]) / 2.0
+        w_lon = weather_lon if weather_lon is not None else (bbox[0] + bbox[2]) / 2.0
+        hour_utc = 11
+        dt_val = item.properties.get("datetime")
+        if dt_val and len(dt_val) >= 13 and "T" in dt_val:
+            try:
+                hour_utc = int(dt_val.split("T")[1][:2])
+            except ValueError:
+                pass
+
+        print(
+            f"Fetching Open-Meteo weather for ({w_lat:.3f}, {w_lon:.3f}) at {date_str} {hour_utc:02d}:00 UTC..."
+        )
+        try:
+            weather_obs = fetch_historical_weather(
+                latitude=w_lat,
+                longitude=w_lon,
+                date_str=date_str,
+                hour_utc=hour_utc,
+            )
+            aero = compute_aerodynamics(
+                ground_speed_mps=result.speed_mps,
+                heading_deg=result.heading_deg,
+                weather=weather_obs,
+                elevation_m=weather_elevation_m,
+            )
+            result = dataclasses.replace(result, aero=aero)
+        except Exception as err:
+            logger.warning("Could not fetch or compute weather aerodynamics: %s", err)
 
     print("\n" + result.summary() + "\n")
 
@@ -244,6 +292,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_measure.add_argument(
         "--runway-heading", type=float, help="Runway heading in degrees clockwise from North"
+    )
+    p_measure.add_argument(
+        "--weather",
+        action="store_true",
+        help="Fetch historical weather from Open-Meteo and compute aerodynamic telemetry (TAS, headwind, density altitude)",
+    )
+    p_measure.add_argument(
+        "--elevation",
+        type=float,
+        default=None,
+        help="Airport elevation in meters above MSL (default: 42.0 m for Bilbao Airport)",
     )
     p_measure.add_argument("--out", help="Path to save annotated output figure")
 
