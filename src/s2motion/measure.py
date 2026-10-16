@@ -22,6 +22,7 @@ from s2motion.constants import (
     DELTA_T_RELATIVE_UNCERTAINTY,
     EXPECTED_GREEN_RELATIVE_FRACTION,
 )
+from s2motion.weather import AerodynamicResult
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class MeasurementResult:
     expected_green_fraction: float
     fraction_deviation: float
     runway_diff_deg: float | None = None
+    aero: AerodynamicResult | None = None
 
     def summary(self) -> str:
         """Format a human-readable multi-line summary."""
@@ -79,6 +81,19 @@ class MeasurementResult:
         ]
         if self.runway_diff_deg is not None:
             lines.append(f"  - Runway axis difference:   {self.runway_diff_deg:.1f} deg")
+
+        if self.aero is not None:
+            obs = self.aero.weather
+            lines.extend([
+                "------------------------------------------------------------",
+                "Aeronautical & Weather Telemetry (Open-Meteo):",
+                f"  - Surface Weather:  {obs.temperature_c:.1f} °C | {obs.surface_pressure_hpa:.1f} hPa | Wind {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°",
+                f"  - Wind Components:  Headwind: {self.aero.headwind_mps * 3.6:+.1f} km/h ({self.aero.headwind_mps * 1.94384:+.1f} kt) | Crosswind: {self.aero.crosswind_mps * 3.6:+.1f} km/h",
+                f"  - Air Density:      Density Altitude: {self.aero.density_altitude_ft:.0f} ft ({self.aero.density_delta_ft:+.0f} ft vs field elevation)",
+                f"  - True Airspeed:    TAS: {self.aero.true_airspeed_kmh:.0f} km/h [{self.aero.true_airspeed_knots:.0f} kt] (Ground Speed: {self.speed_kmh:.0f} km/h)",
+                f"  - Wind Alignment:   {'Favorable headwind' if self.aero.is_favorable_headwind else 'Tailwind component present'}",
+            ])
+
         lines.append("============================================================")
         return "\n".join(lines)
 
@@ -92,6 +107,7 @@ def calculate_motion(
     delta_t_rel_uncertainty: float = DELTA_T_RELATIVE_UNCERTAINTY,
     centroid_uncertainty_px: float = CENTROID_UNCERTAINTY_PX,
     runway_heading_deg: float | None = None,
+    aero: AerodynamicResult | None = None,
 ) -> MeasurementResult:
     """Calculate displacement, heading, speed and coherence metrics from Red to Blue.
 
@@ -212,4 +228,5 @@ def calculate_motion(
         expected_green_fraction=EXPECTED_GREEN_RELATIVE_FRACTION,
         fraction_deviation=fraction_deviation,
         runway_diff_deg=runway_diff_deg,
+        aero=aero,
     )

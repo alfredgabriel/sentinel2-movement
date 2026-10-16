@@ -93,3 +93,40 @@ def test_zero_displacement_raises() -> None:
     """Verify error on identical coordinates."""
     with pytest.raises(ValueError, match="Centroid displacement is zero"):
         calculate_motion(red_centroid=(10.0, 10.0), blue_centroid=(10.0, 10.0))
+
+
+def test_calculate_motion_with_aerodynamics() -> None:
+    """Verify aero object passing and summary telemetry formatting."""
+    from s2motion.weather import WeatherObservation, compute_aerodynamics
+
+    obs = WeatherObservation(
+        timestamp_utc="2026-08-12T11:00",
+        latitude=43.301,
+        longitude=-2.911,
+        temperature_c=28.7,
+        surface_pressure_hpa=1014.3,
+        wind_speed_mps=10.2 / 3.6,
+        wind_direction_deg=14.0,
+    )
+    aero = compute_aerodynamics(
+        ground_speed_mps=290.0 / 3.6,
+        heading_deg=117.4,
+        weather=obs,
+        elevation_m=42.0,
+    )
+    res = calculate_motion(
+        red_centroid=(100.0, 100.0),
+        blue_centroid=(107.2, 103.7),
+        runway_heading_deg=120.0,
+        aero=aero,
+    )
+
+    assert res.aero is not None
+    assert abs(res.aero.weather.temperature_c - 28.7) < 1e-4
+    assert res.aero.density_altitude_ft > 1000.0
+
+    summary_text = res.summary()
+    assert "Aeronautical & Weather Telemetry (Open-Meteo):" in summary_text
+    assert "Density Altitude:" in summary_text
+    assert "TAS:" in summary_text
+    assert "Wind Components:" in summary_text
