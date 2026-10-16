@@ -63,21 +63,59 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 ### Caso 1: Despegue por la pista 12 del Aeropuerto de Bilbao (2026-08-12)
 - **Escenario**: Avión acelerando en la pista 12/30 (rumbo pista 12: $120.0^\circ$) hacia el sureste.
 - **Sentido del movimiento**: Rojo $\to$ Verde $\to$ Azul.
-- **Resultados medidos dinámicamente**:
-  - **Distancia**: $82.4\text{ m}$ (rango: $72.4 - 92.4\text{ m}$).
-  - **Rumbo**: **$117.4^\circ$** desde el norte (alineado con la pista 12 con desvío de solo **$2.6^\circ$**).
-  - **Velocidad**: **$295\text{ km/h}$** (rango con incertidumbre: **$254 - 338\text{ km/h}$**).
-  - **Colinealidad del verde**: $0.11\text{ px}$ (trayectoria recta prácticamente perfecta).
-  - **Posición temporal del verde**: $0.47$ (esperado teórico: $0.48$, $\Delta < 0.01$).
 
+#### Vista general del recorte completo (Aeropuerto de Bilbao / Loiu)
+![Vista general 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
+
+#### Análisis cinemático subpíxel y dispersión entre bandas
 ![Despegue Loiu 2026-08-12](docs/img/loiu_2026-08-12_measured.png)
+
+```text
+============================================================
+Sentinel-2 Moving Object Kinematics & Coherence Report
+============================================================
+Direction:    Red -> Green -> Blue
+Distance:     82.4 m (range: 72.4 - 92.4 m, 1-sigma: +/-7.1 m)
+Heading:      117.4 deg clockwise from North (+/-7.0 deg)
+Velocity:     295 km/h (range: 254 - 338 km/h) [82.0 m/s]
+Delta t:      1.005 s (range: 0.985 - 1.025 s)
+------------------------------------------------------------
+Coherence Diagnostics:
+  - Green collinearity offset: 0.11 px (expected < ~1.0 px)
+  - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
+  - Runway axis difference:   2.6 deg (alineado pista 12)
+============================================================
+```
+
+---
 
 ### Caso 2: Avión a alta cota con estela visible (2026-06-21)
 - **Escenario**: Avión en crucero a gran altitud ($\approx 10\text{ km}$) rumbo noroeste ($330.4^\circ$).
-- **Desplazamiento aparente**: $321.4\text{ m}$ ($1151\text{ km/h}$).
-- **Demostración cualitativa**: A gran altura, el desplazamiento aparente mezcla la velocidad del avión con el paralaje estereoscópico inducido por la velocidad orbital del satélite ($\sim 7.2\text{ km/s}$).
 
+#### Vista general de la escena con estela de condensación
+![Vista general 2026-06-21](docs/img/loiu_2026-06-21_overview.png)
+
+#### Análisis cualitativo del desplazamiento por paralaje
 ![Avión a alta cota Loiu 2026-06-21](docs/img/loiu_2026-06-21_measured.png)
+
+```text
+============================================================
+Sentinel-2 Moving Object Kinematics & Coherence Report
+============================================================
+Direction:    Red -> Green -> Blue
+Distance:     321.4 m (range: 311.4 - 331.4 m, 1-sigma: +/-7.1 m)
+Heading:      330.4 deg clockwise from North (+/-1.8 deg)
+Velocity:     1151 km/h (range: 1094 - 1211 km/h) [319.8 m/s]
+Delta t:      1.005 s (range: 0.985 - 1.025 s)
+------------------------------------------------------------
+Coherence Diagnostics:
+  - Green collinearity offset: 0.54 px (expected < ~1.0 px)
+  - Green relative position:  0.46 (expected: 0.48, delta: 0.01)
+  - Runway axis difference:   30.4 deg
+============================================================
+```
+
+**Nota sobre paralaje**: A gran altura, el desplazamiento aparente mezcla la velocidad real del avión con el paralaje estereoscópico inducido por la velocidad orbital del satélite ($\sim 7.2\text{ km/s}$).
 
 ---
 

@@ -92,6 +92,10 @@ s2motion measure --config examples/loiu_2026-08-12.toml
 - **Target**: Aircraft accelerating and rotating along runway 12/30 at Bilbao Airport (LEBB/BIO).
 - **Physical Context**: Runway 12/30 has an azimuth of $\approx 120^\circ / 300^\circ$. An aircraft taking off towards the southeast on runway 12 heads at $\approx 117^\circ - 120^\circ$.
 
+#### Full Scene Overview (Uncropped Crop of Bilbao Airport Area)
+![Full Scene Overview - 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
+
+#### Subpixel Kinematics & Inter-Band Analysis
 ![Case 1: Aircraft Takeoff from Bilbao Airport](docs/img/loiu_2026-08-12_measured.png)
 
 ```text
@@ -121,6 +125,10 @@ Coherence Diagnostics:
 ### Case 2: High-Altitude Cruising Aircraft with Contrail (2026-06-21)
 - **Target**: Aircraft at cruising altitude ($\sim 10 - 11 \text{ km}$) heading northwest across the Bilbao region, with a prominent condensation trail (contrail).
 
+#### Full Scene Overview (Bilbao Region with Visible Contrail)
+![Full Scene Overview - 2026-06-21](docs/img/loiu_2026-06-21_overview.png)
+
+#### Subpixel Kinematics & Inter-Band Analysis
 ![Case 2: High-Altitude Cruising Aircraft with Contrail](docs/img/loiu_2026-06-21_measured.png)
 
 ```text
@@ -135,7 +143,7 @@ Delta t:      1.005 s (range: 0.985 - 1.025 s)
 ------------------------------------------------------------
 Coherence Diagnostics:
   - Green collinearity offset: 0.54 px (expected < ~1.0 px)
-  - Green relative position:  0.46 (expected: 0.48, delta: 0.02)
+  - Green relative position:  0.46 (expected: 0.48, delta: 0.01)
   - Runway axis difference:   30.4 deg
 ============================================================
 ```
