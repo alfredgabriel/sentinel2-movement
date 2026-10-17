@@ -65,6 +65,7 @@ class MeasurementResult:
     runway_diff_deg: float | None = None
     runway_proximity: Any | None = None
     aero: AerodynamicResult | None = None
+    parallax: Any | None = None
 
     def summary(self) -> str:
         """Format a human-readable multi-line summary."""
@@ -98,6 +99,14 @@ class MeasurementResult:
                 ]
             )
 
+        if self.parallax is not None:
+            lines.extend(
+                [
+                    "------------------------------------------------------------",
+                    self.parallax.summary(),
+                ]
+            )
+
         if self.aero is not None:
             obs = self.aero.weather
             lines.extend(
@@ -126,6 +135,7 @@ def calculate_motion(
     runway_heading_deg: float | None = None,
     runway_proximity: Any | None = None,
     aero: AerodynamicResult | None = None,
+    parallax: Any | None = None,
 ) -> MeasurementResult:
     """Calculate displacement, heading, speed and coherence metrics.
 
@@ -270,4 +280,5 @@ def calculate_motion(
         runway_diff_deg=runway_diff_deg,
         runway_proximity=runway_proximity,
         aero=aero,
+        parallax=parallax,
     )

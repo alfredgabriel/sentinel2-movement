@@ -123,6 +123,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
     weather_elevation_m = 42.0
     weather_lat: float | None = None
     weather_lon: float | None = None
+    altitude_m: float | None = None
+    altitude_min_m: float | None = None
+    altitude_max_m: float | None = None
 
     if args.config:
         cfg = load_toml_config(Path(args.config))
@@ -157,6 +160,14 @@ def cmd_measure(args: argparse.Namespace) -> int:
         if "band_order" in motion_cfg:
             band_order = motion_cfg["band_order"]
 
+        parallax_cfg = cfg.get("parallax", {})
+        if "altitude_m" in parallax_cfg:
+            altitude_m = float(parallax_cfg["altitude_m"])
+        if "altitude_min_m" in parallax_cfg:
+            altitude_min_m = float(parallax_cfg["altitude_min_m"])
+        if "altitude_max_m" in parallax_cfg:
+            altitude_max_m = float(parallax_cfg["altitude_max_m"])
+
     # 2. Apply CLI overrides
     if args.date:
         date_str = args.date
@@ -166,6 +177,10 @@ def cmd_measure(args: argparse.Namespace) -> int:
         runway_heading = args.runway_heading
     if getattr(args, "band_order", None):
         band_order = args.band_order
+    if getattr(args, "altitude", None) is not None:
+        altitude_m = args.altitude
+    if getattr(args, "altitude_range", None) is not None:
+        altitude_min_m, altitude_max_m = args.altitude_range
     if getattr(args, "weather", False):
         weather_enabled = True
     if getattr(args, "elevation", None) is not None:
@@ -228,6 +243,22 @@ def cmd_measure(args: argparse.Namespace) -> int:
         runway_heading_deg=runway_heading,
         runway_proximity=runway_prox,
     )
+
+    if altitude_m is not None:
+        from s2motion.parallax import correct_parallax
+
+        mean_lat = (bbox[1] + bbox[3]) / 2.0
+        parallax_res = correct_parallax(
+            apparent_speed_mps=result.speed_mps,
+            apparent_heading_deg=result.heading_deg,
+            altitude_m=altitude_m,
+            altitude_min_m=altitude_min_m,
+            altitude_max_m=altitude_max_m,
+            latitude_deg=mean_lat,
+            band_order=band_order,
+            delta_t_s=result.delta_t_s,
+        )
+        result = dataclasses.replace(result, parallax=parallax_res)
 
     if weather_enabled:
         w_lat = weather_lat if weather_lat is not None else (bbox[1] + bbox[3]) / 2.0
@@ -340,6 +371,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="Airport elevation in meters above MSL (default: 42.0 m for Bilbao Airport)",
+    )
+    p_measure.add_argument(
+        "--altitude",
+        type=float,
+        default=None,
+        help="Estimated flight altitude in meters for stereoscopic parallax correction",
+    )
+    p_measure.add_argument(
+        "--altitude-range",
+        nargs=2,
+        type=float,
+        metavar=("MIN_ALT", "MAX_ALT"),
+        default=None,
+        help="Altitude interval [MIN_ALT, MAX_ALT] in meters for parallax sensitivity bounds",
     )
     p_measure.add_argument("--out", help="Path to save annotated output figure")
 

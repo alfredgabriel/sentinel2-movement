@@ -77,15 +77,23 @@ In Case 2 (2026-06-21, high-altitude airliner), the aircraft produces a visible 
 - For the contrail to trail behind the airframe, the aircraft must occupy the Red position at the earlier timestamp and the Blue position at the later timestamp ($t_{\text{red}} < t_{\text{blue}}$).
 
 ### 4.2 High-Altitude Parallax Velocity Plausibility
-In Case 2, the apparent uncorrected displacement between endpoints is $321.4 \pm 7.1\text{ m}$ over $1.005\text{ s}$, yielding an uncorrected apparent ground velocity of $1151\text{ km/h}$ ($319.8\text{ m/s}$).
+In Case 2, the apparent uncorrected displacement between endpoints is $321.4 \pm 7.1\text{ m}$ over $1.005\text{ s}$, yielding an uncorrected apparent ground velocity of $1151.3\text{ km/h}$ ($319.8\text{ m/s}$).
 
-Because the aircraft is flying at cruise altitude ($h \approx 10.5\text{ km}$), the satellite's orbital velocity ($\approx 7.46\text{ km/s}$, ground track velocity $\approx 6.7\text{ km/s}$) induces significant stereoscopic parallax:
-- Satellite ground track moves southward (azimuth $\approx 190^\circ - 195^\circ$).
-- Aircraft is flying northwest ($330.4^\circ$), moving in the opposite general direction to the satellite track.
+Because the aircraft is flying at cruise altitude, stereoscopic parallax is induced by the satellite ground track motion ($v_{\text{track}} \approx 6.72\text{ km/s}$, heading $\approx 194.7^\circ$, derived from orbital mechanics). The aircraft flies northwest ($330.4^\circ$), moving in the opposite general direction to the satellite track.
+
+> [!CAUTION]
+> **Flight Altitude Disclaimer**: Flight altitude is a user-specified parameter, not an independently measured observable. Nominal cruise altitude is assumed at $h = 10.5\text{ km}$ ($34,450\text{ ft}$), with a plausible cruise altitude interval of $[9.0, 12.0]\text{ km}$ ($29,500 - 39,400\text{ ft}$).
+
+Comparing the two band order hypotheses (originally estimated in preliminary hand calculations as $\sim 850-920\text{ km/h}$ vs $>1400\text{ km/h}$, now rigorously reproduced and parameterized via `s2motion.parallax`):
+
 - **Under `red-first`**: The apparent displacement represents real aircraft displacement plus forward parallax, so the true horizontal aircraft velocity is *lower* than the raw apparent velocity:
-  $$v_{\text{true}} \approx 1151\text{ km/h} - v_{\text{parallax}} \approx 850 - 920\text{ km/h} \quad (\text{Mach } 0.78 - 0.84)$$
-  This is the standard cruise speed regime for commercial jet transports (A320, B737).
-- **Under `blue-first`**: Reversing the time vector inverts the sign of the kinematic motion while parallax geometry remains tied to sensor motion, leading to a calculated aircraft speed exceeding $\approx 1400\text{ km/h}$ (supersonic, Mach $> 1.2$), which is physically implausible for civil commercial air traffic.
+  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 947.3\text{ km/h}$** ($263.1\text{ m/s}$), true heading = **$316.6^\circ$** ($\Delta v = -204.0\text{ km/h}$).
+  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [923.8, 972.5]\text{ km/h}$** ($\approx 924 - 973\text{ km/h}$, Mach $0.85 - 0.89$ at cruise FL).
+  This falls within the high-speed cruise envelope of modern commercial jet airliners (e.g. A350, B787, B777, A330).
+- **Under `blue-first`**: Reversing the time vector inverts the sign of the kinematic motion while parallax geometry remains tied to sensor motion, leading to a calculated aircraft speed:
+  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 1401.0\text{ km/h}$** ($389.1\text{ m/s}$), true heading = **$159.7^\circ$** ($\Delta v = +249.6\text{ km/h}$).
+  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [1363.4, 1439.0]\text{ km/h}$** ($\approx 1363 - 1439\text{ km/h}$, Mach $1.25 - 1.32$).
+  This corresponds to supersonic flight, which is physically implausible for civil commercial air transport.
 
 ---
 

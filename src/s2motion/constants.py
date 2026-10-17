@@ -169,6 +169,27 @@ STAC_ASSET_MAP: Final[dict[str, str]] = {
 }
 
 # ---------------------------------------------------------------------------
+# Orbital and Satellite Parameters
+# ---------------------------------------------------------------------------
+# Sentinel-2 nominal orbit semi-major axis (meters)
+SENTINEL2_SEMI_MAJOR_AXIS_M: Final[float] = 7157000.0
+
+# Sentinel-2 nominal orbital altitude above mean sea level (meters)
+SENTINEL2_MEAN_ALTITUDE_M: Final[float] = 786000.0
+
+# Sun-synchronous orbit inclination (degrees)
+SENTINEL2_INCLINATION_DEG: Final[float] = 98.62
+
+# Standard gravitational parameter of Earth (m^3 / s^2)
+EARTH_GM: Final[float] = 3.986004418e14
+
+# Earth angular rotation rate (rad/s)
+EARTH_ROTATION_RATE_RAD_S: Final[float] = 7.292115e-5
+
+# Volumetric mean Earth radius (meters)
+EARTH_MEAN_RADIUS_M: Final[float] = 6371000.0
+
+# ---------------------------------------------------------------------------
 # Literature Citations
 # ---------------------------------------------------------------------------
 CITATIONS: Final[dict[str, dict[str, str]]] = {
@@ -195,5 +216,38 @@ CITATIONS: Final[dict[str, dict[str, str]]] = {
         "year": "2022",
         "doi": "10.5194/isprs-annals-V-1-2022-57-2022",
         "url": "https://isprs-annals.copernicus.org/articles/V-1-2022/57/2022/",
+    },
+    "heiselberg_2019": {
+        "authors": "Henning Heiselberg",
+        "title": "Aircraft and Ship Velocity Determination in Sentinel-2 Multispectral Images",
+        "journal": "Sensors",
+        "volume": "19",
+        "number": "13",
+        "pages": "2873",
+        "year": "2019",
+        "doi": "10.3390/s19132873",
+        "url": "https://doi.org/10.3390/s19132873",
+    },
+    "heiselberg_2021": {
+        "authors": "Henning Heiselberg",
+        "title": "Aircraft Detection above Clouds by Sentinel-2 MSI Parallax",
+        "journal": "Remote Sensing",
+        "volume": "13",
+        "number": "12",
+        "pages": "2327",
+        "year": "2021",
+        "doi": "10.3390/rs13122327",
+        "url": "https://doi.org/10.3390/rs13122327",
+    },
+    "esa_dqr_2023": {
+        "authors": "European Space Agency (ESA)",
+        "title": "Copernicus Sentinel-2 Data Quality Report",
+        "report_id": "ESA-EOPG-EOQC-RP-0001",
+        "year": "2023",
+        "note": (
+            "Specifies absolute geolocation accuracy: < 20 m (at 95.5% / 2-sigma confidence) "
+            "without Ground Control Points (GCPs), and < 10 m (at 95.5% confidence) with the "
+            "Global Reference Image (GRI)."
+        ),
     },
 }

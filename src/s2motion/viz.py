@@ -151,6 +151,19 @@ def create_annotated_figure(
         f"Collinearity: {result.collinearity_px:.2f} px\n"
         f"Green pos:    {result.green_relative_fraction:.2f} (exp: {result.expected_green_fraction:.2f})"
     )
+    if result.parallax is not None:
+        px = result.parallax
+        range_s = (
+            f" [{px.corrected_speed_min_kmh:.0f}-{px.corrected_speed_max_kmh:.0f}]"
+            if px.corrected_speed_min_kmh is not None
+            else ""
+        )
+        metrics_text += (
+            f"\n-- Parallax Corrected (h={px.altitude_m:.0f}m) --\n"
+            f"Corrected: {px.corrected_speed_kmh:.0f} km/h{range_s}\n"
+            f"True Heading: {px.corrected_heading_deg:.1f}° ({px.delta_speed_kmh:+.0f} km/h)"
+        )
+
     if result.runway_proximity is not None:
         p = result.runway_proximity
         metrics_text += (

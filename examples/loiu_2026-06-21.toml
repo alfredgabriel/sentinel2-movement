@@ -23,3 +23,10 @@ threshold_ratio = 0.5
 
 [output]
 figure = "docs/img/loiu_2026-06-21_measured.png"
+
+[parallax]
+# User-specified cruise flight altitude parameters for stereoscopic parallax correction
+# Note: Flight altitude is a user parameter, not an independently measured observable.
+altitude_m = 10500.0
+altitude_min_m = 9000.0
+altitude_max_m = 12000.0

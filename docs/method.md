@@ -127,3 +127,95 @@ The surface wind vector is decomposed into:
   Where $v_{\text{xw}} > 0$ denotes crosswind from the right and $v_{\text{xw}} < 0$ from the left.
 
 *Note: Surface meteorological variables (ambient temperature, surface pressure, 10 m AGL wind speed and direction) capture ground-level ambient state for environmental documentation. They do not imply physical causality for aircraft ground velocity or flight phase, and true airspeed (TAS) or density altitude at aircraft flight level are not inferred from surface measurements.*
+
+---
+
+## 7. Stereoscopic Parallax Correction for Airborne Targets
+
+When an object is airborne at altitude $h$ above the ground terrain/ellipsoid, its observed position across spectral bands is displaced by stereoscopic parallax. In the Sentinel-2 pushbroom architecture, each spectral band's detector strip looks at a distinct along-track forward angle $\theta_b$.
+
+### 7.1 Pushbroom Geometry and Parallax Vector Derivation
+Let $H$ be the satellite altitude above the ground surface ($H \approx 786\text{ km}$). An elevated object at position $\vec{X}_{\text{obj}}$ and height $h$ is observed by a detector line looking forward by along-track angle $\theta_b$. In orthorectified products (where rays are projected to the ground DEM at $z = 0$), the object appears at ground coordinate:
+
+$$\vec{x}_{\text{apparent}} = \vec{x}_{\text{nadir}} + h \tan(\theta_b) \hat{u}_{\text{track}}$$
+
+For two spectral bands separated by time delay $\Delta t$ along the ground track:
+The spatial separation of their ground swaths corresponds to the distance traveled by the satellite ground track:
+
+$$H \tan(\theta_{\text{leading}}) - H \tan(\theta_{\text{trailing}}) = v_{\text{track}} \Delta t$$
+
+$$\tan(\theta_{\text{leading}}) - \tan(\theta_{\text{trailing}}) = \frac{v_{\text{track}} \Delta t}{H}$$
+
+Consequently, the band captured **first** (the leading detector, $\theta_{\text{leading}}$) images the elevated object **further forward along the satellite ground track** than the band captured **last** (the trailing detector, $\theta_{\text{trailing}}$):
+
+$$\vec{r}_{\text{first}} - \vec{r}_{\text{last}} = +\frac{h}{H} \vec{v}_{\text{track}} \Delta t$$
+
+The parallax displacement vector from the first band to the last band is therefore directed **opposite** to the satellite ground track:
+
+$$\Delta \vec{r}_{\text{parallax}} = \vec{r}_{\text{last}} - \vec{r}_{\text{first}} = -\frac{h}{H} \vec{v}_{\text{track}} \Delta t$$
+
+For an aircraft moving with true horizontal velocity $\vec{v}_{\text{true}}$, the observed apparent displacement between the first and last exposures is:
+
+$$\Delta \vec{r}_{\text{apparent}} = \vec{v}_{\text{true}} \Delta t + \Delta \vec{r}_{\text{parallax}} = \vec{v}_{\text{true}} \Delta t - \frac{h}{H} \vec{v}_{\text{track}} \Delta t$$
+
+Dividing by the elapsed time $\Delta t$ yields the apparent velocity vector:
+
+$$\vec{v}_{\text{apparent}} = \vec{v}_{\text{true}} - \frac{h}{H} \vec{v}_{\text{track}}$$
+
+Solving for the true aircraft horizontal ground velocity:
+
+$$\vec{v}_{\text{true}} = \vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$$
+
+> [!IMPORTANT]
+> **Directional Consistency Check**:
+> - In descending orbit over mid-latitudes, the satellite ground track heading is $\approx 194.7^\circ$ (South-Southwest, so $v_{N,\text{track}} < 0$).
+> - When an aircraft flies northwest ($\sim 330^\circ$, $v_{N,\text{apparent}} > 0$), the vector addition $\vec{v}_{\text{true}} = \vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$ adds a negative northward contribution, reducing the northward ground speed ($1151\text{ km/h} \to 947\text{ km/h}$ at $h = 10.5\text{ km}$).
+> - If `blue-first` were assumed, the apparent heading is southeast ($\sim 150^\circ$, $v_{N,\text{apparent}} < 0$), in the same general direction as the satellite track; the addition reinforces the velocity, yielding an unphysical supersonic speed ($1401\text{ km/h}$, Mach $>1.3$).
+
+### 7.2 Derivation of Satellite Ground Track Velocity
+Rather than assuming a constant inertial orbital velocity ($v_{\text{orb}} \approx 7.46\text{ km/s}$) or an arbitrary estimate ($7.2\text{ km/s}$), `s2motion` derives the ground track velocity directly from Sentinel-2 orbital mechanics:
+- Orbit semi-major axis: $a = 7157\text{ km}$
+- Sun-synchronous inclination: $i = 98.62^\circ$
+- Gravitational parameter: $\mu = 3.986004418 \times 10^{14}\text{ m}^3/\text{s}^2$
+- Earth mean radius: $R_E = 6371\text{ km}$
+- Earth angular rotation: $\omega_E = 7.292115 \times 10^{-5}\text{ rad/s}$
+
+1. **Orbital speed (inertial)**:
+   $$v_{\text{orb}} = \sqrt{\frac{\mu}{a}} \approx 7462.8\text{ m/s}$$
+
+2. **Inertial subsatellite speed on the ground sphere**:
+   $$v_{\text{sub}} = v_{\text{orb}} \cdot \frac{R_E}{a} \approx 6643.2\text{ m/s}$$
+
+3. **Descending track azimuth ($\chi$)**:
+   $$\sin(\chi) = \frac{\cos(i)}{\cos(\phi)}$$
+   For latitude $\phi = 43.3^\circ$ (Bilbao), $\chi \approx 191.9^\circ$.
+
+4. **Earth rotation subtraction**:
+   At latitude $\phi$, the Earth rotates eastward at:
+   $$v_{\text{rot}} = \omega_E R_E \cos(\phi) \approx 338.1\text{ m/s}$$
+   Subtracting this eastward motion from the inertial velocity yields:
+   $$v_{N,\text{track}} = v_{\text{sub}} \cos(\chi) \approx -6499.5\text{ m/s}$$
+   $$v_{E,\text{track}} = v_{\text{sub}} \sin(\chi) - v_{\text{rot}} \approx -1706.1\text{ m/s}$$
+   $$v_{\text{track}} = \sqrt{v_{N,\text{track}}^2 + v_{E,\text{track}}^2} \approx 6721.0\text{ m/s} \quad (\approx 24196\text{ km/h})$$
+   $$\psi_{\text{track}} = \text{atan2}(v_{E,\text{track}}, v_{N,\text{track}}) \approx 194.7^\circ$$
+
+*Uncertainty note on satellite speed*: Using the inertial speed ($7.46\text{ km/s}$) instead of the ground-track speed ($6.72\text{ km/s}$) would overestimate the parallax correction by $\approx 11\%$ ($\sim 25\text{ km/h}$ at cruise altitude). This difference is explicitly resolved by using the ground-track velocity.
+
+### 7.3 Verification against Literature
+- **Krauß (2021)**: Formulates cloud height from disparity $d$ as $h = \frac{d \cdot h_o}{v_o \cdot \Delta t}$, which is identical to our displacement formula $d = \frac{h}{H} v_{\text{track}} \Delta t$.
+- **Heiselberg (2019, 2021)**: Models observed multi-band position as $\mathbf{r}_m = \mathbf{r}_0 + \mathbf{v}\Delta t_m + h \tan\theta_v \hat{\mathbf{u}}_{\text{view}}$, confirming the forward look angle parallax orientation.
+
+> [!CAUTION]
+> **Flight Altitude Disclaimer**: Flight altitude $h$ is a user-specified parameter, not an independently measured observable. The sensitivity of ground speed to altitude is approximately $d v / d h \approx \frac{v_{\text{track}}}{H} \approx 8.5\text{ m/s per km} \approx 30.8\text{ km/h per 1,000 m}$ along track.
+
+---
+
+## 8. Spatial Uncertainty Budget and Geolocation Precision
+
+Every position reported relative to runway infrastructure is qualified by an estimated spatial uncertainty of **$\pm 15\text{ m}$**. This budget is derived from published official specifications:
+1. **ESA Mission Requirements Document (MRD, S2-RS-ESA-SY-0001)**: Specifies an absolute geolocation uncertainty $< 20\text{ m}$ at a $2\sigma$ ($95.5\%$) confidence level without Ground Control Points.
+2. **Copernicus Sentinel-2 Data Quality Report (ESA-EOPG-EOQC-RP-0001)**: With the deployment of the Global Reference Image (GRI) across Processing Baseline 03.00+, geometric multi-temporal registration achieves a circular error $< 10\text{ m}$ at $95.5\%$ confidence.
+3. **Sensor Discretization**: Ground Sampling Distance (GSD) of $10.0\text{ m}$ per pixel.
+4. **Pushbroom Dynamic Discretization**: Intraband along-track motion during the detector line integration time.
+
+Combining these independent error components in quadrature yields a root-sum-square spatial uncertainty on the ground of $\sigma_{\text{pos}} \approx \pm 15\text{ m}$.
