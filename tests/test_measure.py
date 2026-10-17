@@ -127,9 +127,9 @@ def test_calculate_motion_with_aerodynamics() -> None:
 
     summary_text = res.summary()
     assert "Surface Weather Telemetry (Open-Meteo" in summary_text
-    assert "Density Altitude:" in summary_text
-    assert "TAS:" in summary_text
     assert "Wind Components:" in summary_text
+    assert "Density Altitude:" not in summary_text
+    assert "TAS:" not in summary_text
 
 
 def test_calculate_motion_with_runway_proximity() -> None:
@@ -158,3 +158,46 @@ def test_calculate_motion_with_runway_proximity() -> None:
     summary = res.summary()
     assert "Runway Position" in summary
     assert "APPROACH CORRIDOR" in summary
+
+
+def test_calculate_motion_band_order_comparison() -> None:
+    """Verify vector inversion, 180° heading shift, and green fraction under both band orders."""
+    # Case 1 coordinates: Red=(66.0, 158.6), Blue=(73.3, 162.3), Green=(69.4, 160.3)
+    r_pt = (66.0, 158.6)
+    b_pt = (73.3, 162.3)
+    g_pt = (69.4, 160.3)
+
+    res_red = calculate_motion(
+        red_centroid=r_pt,
+        blue_centroid=b_pt,
+        green_centroid=g_pt,
+        band_order="red-first",
+    )
+    res_blue = calculate_motion(
+        red_centroid=r_pt,
+        blue_centroid=b_pt,
+        green_centroid=g_pt,
+        band_order="blue-first",
+    )
+
+    # 1. Magnitudes match exactly
+    assert abs(res_red.distance_m - res_blue.distance_m) < 1e-4
+    assert abs(res_red.speed_kmh - res_blue.speed_kmh) < 1e-4
+    assert abs(res_red.collinearity_px - res_blue.collinearity_px) < 1e-4
+
+    # 2. Heading is rotated by exactly 180°
+    assert abs((res_red.heading_deg + 180.0) % 360.0 - res_blue.heading_deg) < 1e-4
+    assert abs(res_red.heading_deg - 117.0) < 1.0
+    assert abs(res_blue.heading_deg - 297.0) < 1.0
+
+    # 3. Expected green fractions differ according to sensor layout
+    assert abs(res_red.expected_green_fraction - (0.478 / 1.005)) < 1e-5
+    assert abs(res_blue.expected_green_fraction - (0.527 / 1.005)) < 1e-5
+
+    # 4. Summaries report appropriate directions
+    assert "Direction:    Red -> Green -> Blue" in res_red.summary()
+    assert "Direction:    Blue -> Green -> Red" in res_blue.summary()
+
+    # 5. Invalid band order raises ValueError
+    with pytest.raises(ValueError, match="Invalid band_order"):
+        calculate_motion(red_centroid=r_pt, blue_centroid=b_pt, band_order="invalid")

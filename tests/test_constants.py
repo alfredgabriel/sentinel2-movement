@@ -1,4 +1,4 @@
-"""Tests for constants module."""
+import pytest
 
 from s2motion.constants import (
     BAND_ALIASES,
@@ -9,6 +9,8 @@ from s2motion.constants import (
     DELTA_T_RED_BLUE_S,
     EXPECTED_GREEN_RELATIVE_FRACTION,
     GROUND_ACQUISITION_TIMING_S,
+    get_band_timing,
+    get_expected_green_fraction,
 )
 
 
@@ -68,3 +70,35 @@ def test_citations_content() -> None:
     assert "Thomas Krauß" in CITATIONS["krauss_2021"]["authors"]
     assert "10.5194/isprs-annals-V-1-2021-17-2021" == CITATIONS["krauss_2021"]["doi"]
     assert "10.5194/isprs-annals-V-1-2022-57-2022" == CITATIONS["binet_2022"]["doi"]
+
+
+def test_get_band_timing_and_green_fraction() -> None:
+    """Verify get_band_timing and get_expected_green_fraction for both orders."""
+    # red-first
+    t_red = get_band_timing("red-first")
+    assert t_red["red"] == 0.000
+    assert abs(t_red["green"] - 0.478) < 1e-4
+    assert abs(t_red["nir"] - 0.741) < 1e-4
+    assert t_red["blue"] == 1.005
+
+    frac_red = get_expected_green_fraction("red-first")
+    assert abs(frac_red - (0.478 / 1.005)) < 1e-6
+    assert 0.47 < frac_red < 0.48
+
+    # blue-first
+    t_blue = get_band_timing("blue-first")
+    assert t_blue["blue"] == 0.000
+    assert t_blue["nir"] == 0.264
+    assert t_blue["green"] == 0.527
+    assert t_blue["red"] == 1.005
+
+    frac_blue = get_expected_green_fraction("blue-first")
+    assert abs(frac_blue - (0.527 / 1.005)) < 1e-6
+    assert 0.52 < frac_blue < 0.53
+
+    # invalid order
+    with pytest.raises(ValueError, match="Invalid band order"):
+        get_band_timing("green-first")
+
+    with pytest.raises(ValueError, match="Invalid band order"):
+        get_expected_green_fraction("invalid")

@@ -4,6 +4,9 @@ import logging
 import math
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
@@ -104,13 +107,24 @@ def create_annotated_figure(
                 label=f"{b_name.capitalize()} ({code}, t={dt:.3f}s)",
             )
 
-    # Draw motion vector arrow: Red -> Blue
+    # Draw motion vector arrow between origin and destination centroids
     rx, ry = centroids["red"]
     bx, by = centroids["blue"]
+    if result.band_order == "blue-first":
+        arrow_start = (bx, by)
+        arrow_end = (rx, ry)
+        dir_label = "Blue -> Red"
+        dir_full_label = "Blue -> Green -> Red"
+    else:
+        arrow_start = (rx, ry)
+        arrow_end = (bx, by)
+        dir_label = "Red -> Blue"
+        dir_full_label = "Red -> Green -> Blue"
+
     ax_main.annotate(
         "",
-        xy=(bx, by),
-        xytext=(rx, ry),
+        xy=arrow_end,
+        xytext=arrow_start,
         arrowprops={"arrowstyle": "-|>", "color": "white", "lw": 2.2, "mutation_scale": 18},
     )
 
@@ -122,7 +136,7 @@ def create_annotated_figure(
     ax_main.set_xlabel("X (East, pixels)", fontsize=11)
     ax_main.set_ylabel("Y (South, pixels)", fontsize=11)
     ax_main.set_title(
-        f"Zoomed RGB Composite (10 m/px) | Vector: Red -> Blue\nDisplacement: {result.distance_m:.1f} m | Heading: {result.heading_deg:.1f}°",
+        f"Zoomed RGB Composite (10 m/px) | Vector: {dir_label}\nDisplacement: {result.distance_m:.1f} m | Heading: {result.heading_deg:.1f}°",
         fontsize=12,
         fontweight="bold",
     )
@@ -130,7 +144,7 @@ def create_annotated_figure(
 
     # Add overlay metrics box on bottom left
     metrics_text = (
-        f"Direction: Red -> Green -> Blue\n"
+        f"Direction: {dir_full_label}\n"
         f"Velocity:  {result.speed_kmh:.0f} km/h [{result.speed_kmh_min:.0f} - {result.speed_kmh_max:.0f} km/h]\n"
         f"Heading:   {result.heading_deg:.1f}° (N=0°, clockwise)\n"
         f"Delta t:   {result.delta_t_s:.3f} s (+/-2%)\n"
@@ -140,21 +154,20 @@ def create_annotated_figure(
     if result.runway_proximity is not None:
         p = result.runway_proximity
         metrics_text += (
-            f"\nRunway Axis Diff: {result.runway_diff_deg:.1f}°\n"
-            f"Distance to THR 12: {p.dist_thr12_m:.0f} m (offset: {p.cross_axis_m:.1f} m)"
+            f"\nRunway Axis Diff: {result.runway_diff_deg:.1f}° (±{result.heading_uncertainty_deg:.1f}°)\n"
+            f"Distance to THR 12: {p.dist_thr12_m:.0f} ± {p.uncertainty_m:.0f} m (offset: {p.cross_axis_m:.1f} ± {p.uncertainty_m:.0f} m)"
         )
     elif result.runway_diff_deg is not None:
-        metrics_text += f"\nRunway axis diff: {result.runway_diff_deg:.1f}°"
+        metrics_text += f"\nRunway axis diff: {result.runway_diff_deg:.1f}° (±{result.heading_uncertainty_deg:.1f}°)"
 
     if result.aero is not None:
         a = result.aero
         obs = a.weather
         metrics_text += (
             f"\n-- Surface Weather Context (10m AGL) --\n"
+            f"Temp / Pressure: {obs.temperature_c:.1f}°C | {obs.surface_pressure_hpa:.1f} hPa\n"
             f"Wind:      {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°\n"
-            f"Headwind:  {a.headwind_mps * 3.6:+.1f} km/h ({a.headwind_mps * 1.94384:+.1f} kt) | Cross: {a.crosswind_mps * 3.6:+.1f} km/h\n"
-            f"Airspeeds: TAS = {a.true_airspeed_kmh:.0f} km/h [{a.true_airspeed_knots:.0f} kt] (GS: {result.speed_kmh:.0f})\n"
-            f"Density:   DA = {a.density_altitude_ft:.0f} ft ({a.density_delta_ft:+.0f} ft vs field)"
+            f"Headwind:  {a.headwind_mps * 3.6:+.1f} km/h ({a.headwind_mps * 1.94384:+.1f} kt) | Cross: {a.crosswind_mps * 3.6:+.1f} km/h"
         )
 
         # Draw wind indicator arrow on top-left of main panel

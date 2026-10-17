@@ -17,13 +17,18 @@ The **MultiSpectral Instrument (MSI)** on board the European Space Agency's (ESA
 
 As Sentinel-2 orbits at $\sim 7.2 \text{ km/s}$ in a sun-synchronous descending orbit (North to South), the physical layout of the focal plane dictates the along-track scanning sequence:
 - **Band 4 (Red)** is the leading detector in the flight direction: it images any ground coordinate **first** ($t = 0.000\text{ s}$).
-- **Band 3 (Green)** follows $0.478\text{ s}$ later.
-- **Band 8 (NIR)** follows $0.741\text{ s}$ later.
+### Physical Ground Acquisition Sequence
+The inter-band time spacings ($0.000, 0.264, 0.527, 1.005\text{ s}$) are derived from scientific literature (Krauß 2021, Binet et al. 2022). The chronological direction (Red $\rightarrow$ Green $\rightarrow$ Blue) was established empirically from contrail orientation in Case 2 and aerodynamic velocity plausibility (detailed in [docs/band-order.md](docs/band-order.md)). Both `red-first` (default) and `blue-first` are supported via `--band-order`.
+
+Under the default `red-first` sequence:
+- **Band 4 (Red)** is the leading detector: it images a ground target **first** ($t = 0.000\text{ s}$).
+- **Band 3 (Green)** follows $0.478\text{ s}$ later ($1.005 - 0.527\text{ s}$).
+- **Band 8 (NIR)** follows $0.741\text{ s}$ later ($1.005 - 0.264\text{ s}$).
 - **Band 2 (Blue)** is the trailing detector: it images the ground target **last** ($t = 1.005\text{ s}$).
 
 ```mermaid
 timeline
-    title Sentinel-2 Ground Acquisition Sequence
+    title Sentinel-2 Ground Acquisition Sequence (red-first)
     t = 0.000 s : Band 04 (Red, 665 nm) - Leading
     t = 0.478 s : Band 03 (Green, 560 nm)
     t = 0.741 s : Band 08 (NIR, 842 nm)
@@ -42,10 +47,10 @@ When an object travels at high speed during this $\sim 1.005 \text{ s}$ window (
 $$\mathbf{Red} \longrightarrow \mathbf{Green} \longrightarrow \mathbf{Blue}$$
 
 By estimating the **subpixel centroid** in each band, `s2motion` determines:
-1. **Displacement vector** ($\text{Red} \to \text{Blue}$) and ground distance in meters.
+1. **Displacement vector** ($\text{Red} \to \text{Blue}$ or $\text{Blue} \to \text{Red}$) and ground distance in meters.
 2. **True geographic heading** ($0^\circ = \text{North}$, clockwise, $90^\circ = \text{East}$, $180^\circ = \text{South}$, $270^\circ = \text{West}$).
 3. **Ground velocity** with propagated uncertainty bounds.
-4. **Georeferenced proximity to aerodrome runways**: Distance to closest threshold, distance along extended runway axis, and perpendicular offset from the centerline.
+4. **Georeferenced proximity to aerodrome runways**: Distance to closest threshold, distance along extended runway axis, and perpendicular offset from the centerline with explicit spatial uncertainty ($\approx \pm 15\text{ m}$).
 5. **Coherence diagnostics**: Collinearity offset of the Green detection and temporal projection consistency.
 6. **Environmental Surface Weather**: Queries historical surface weather (Open-Meteo / ERA5 reanalysis) linearly interpolated to the scene timestamp for environmental context.
 
@@ -91,14 +96,14 @@ s2motion measure --config examples/loiu_2026-08-12.toml --weather
 ## 4. Case Studies & Results
 
 ### Case 1: Aircraft on Approach to Runway 12, Bilbao Airport (2026-08-12)
-- **Target**: Fast-moving aircraft aligned with runway 12 at Bilbao Airport (LEBB/BIO) (working hypothesis: short final approach, pending ADS-B confirmation).
+- **Target**: Fast-moving aircraft aligned with runway 12 at Bilbao Airport (LEBB/BIO) (working hypothesis: short final approach under `red-first`, pending ADS-B confirmation).
 - **Physical & Spatial Context**:
   - Bilbao Airport Runway 12/30 threshold coordinates from [ENAIRE AIP España (AD 2-LEBB)](https://aip.enaire.es/AIP/):
     - **THR 12 (NW)**: `43°18'22.85"N, 002°55'29.78"W` (`43.306347°N, -2.924939°W`)
     - **THR 30 (SE)**: `43°17'45.91"N, 002°53'49.02"W` (`43.296086°N, -2.896950°W`)
     - True forward geodetic axis calculated from thresholds: **$116.7^\circ$** (the nominal designation '12' is rounded to $120^\circ$).
-  - **Georeferenced Position**: The detected aircraft is located at **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$**, approximately **$1085\text{ m}$ northwest of Threshold 12** along the extended runway centerline ($-1085\text{ m}$ along track) and only **$5.0\text{ m}$ off the extended centerline**.
-  - **Status**: The aircraft is not on the runway surface (`is_on_runway: False`), but positioned in the straight-in approach corridor with heading **$117.4^\circ$**, aligned within **$0.7^\circ$** of the runway 12 geodetic axis.
+  - **Georeferenced Position**: The detected aircraft (Red centroid) is located at **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$** (estimated position uncertainty $\approx \pm 15\text{ m}$ due to 10 m pixel size, Sentinel-2 geolocation accuracy, and motion during line scan), approximately **$1085 \pm 15\text{ m}$ northwest of Threshold 12** along the extended runway centerline ($-1085 \pm 15\text{ m}$ along track) and **$5.0 \pm 15.0\text{ m}$ off the extended centerline**.
+  - **Status**: The aircraft is not on the runway surface (`is_on_runway: False`), but positioned in the straight-in approach corridor with heading **$117.4^\circ \pm 7.0^\circ$**, differing by **$0.7^\circ (\pm 7.0^\circ)$** from the runway 12 geodetic axis.
 
 #### Full Scene Overview (Uncropped Crop of Bilbao Airport Area)
 ![Full Scene Overview - 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
@@ -119,27 +124,26 @@ Delta t:      1.005 s (range: 0.985 - 1.025 s)
 Coherence Diagnostics:
   - Green collinearity offset: 0.11 px (expected < ~1.0 px)
   - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
-  - Runway axis difference:   0.7 deg
+  - Runway axis difference:   0.7 deg (+/-7.0 deg)
 ------------------------------------------------------------
 Runway Position (LEBB Runway 12/30, axis 116.7°):
-  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874°
-  - Proximity to THR 12:    1085 m (along extended axis: -1085 m)
-  - Centerline Offset:      5.0 m
-  - Status:                 APPROACH CORRIDOR (1085 m before THR 12) [on runway surface: False]
+  - Reference Centroid:     Red band (estimated spatial uncertainty: ±15 m)
+  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874° (±15 m)
+  - Proximity to THR 12:    1085 ± 15 m (along extended axis: -1085 ± 15 m)
+  - Centerline Offset:      5.0 ± 15.0 m
+  - Status:                 APPROACH CORRIDOR (1085 ± 15 m before THR 12) [on runway surface: False]
 ------------------------------------------------------------
 Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
   - Surface Weather:  28.9 °C | 1014.4 hPa | Wind 10.6 km/h (5.7 kt) from 14°
   - Wind Components:  Headwind: -2.4 km/h (-1.3 kt) | Crosswind: -10.3 km/h
-  - Air Density:      Density Altitude: 1803 ft (+1665 ft vs field elevation)
-  - True Airspeed:    TAS: 293 km/h [158 kt] (Ground Speed: 295 km/h)
   - Note:             Surface wind does not imply physical causality for aircraft ground speed.
 ============================================================
 ```
 
 **Physical & Kinematic Interpretation**:
-- **Flight phase hypothesis**: Ground speed of **$295 \text{ km/h}$** ($82.0 \text{ m/s}$ / $159\text{ kt}$) and geographic heading of **$117.4^\circ$** at $1.09\text{ km}$ before the threshold are consistent with a commercial jet on short final approach to runway 12 (typically $\sim 140 - 160\text{ kt}$ indicated airspeed). Note that without external ADS-B state vectors, this remains an unvalidated operational hypothesis.
-- **Runway axis alignment**: The measured heading ($117.4^\circ$) differs by only **$0.7^\circ$** from the geodetic runway axis ($116.7^\circ$) calculated directly from official ENAIRE AIP threshold coordinates.
-- **Surface meteorological context**: Historical Open-Meteo reanalysis (interpolated to the scene time $11:09:40\text{ UTC}$) shows ground-level temperature of $28.9^\circ\text{C}$, QNH $1014.4\text{ hPa}$, and a surface wind of $10.6\text{ km/h}$ from $014^\circ$. These values describe the local surface atmosphere as environmental context and are not used as an explanatory cause of the observed speed.
+- **Flight phase hypothesis**: Ground speed of **$295 \text{ km/h}$** ($82.0 \text{ m/s}$ / $159\text{ kt}$) and geographic heading of **$117.4^\circ \pm 7.0^\circ$** at $1085 \pm 15\text{ m}$ before Threshold 12 are consistent with a commercial jet on short final approach to runway 12 under the `red-first` band order. Note that under `blue-first`, the same geometry corresponds to an initial climb out after departure from Runway 30 ($297.4^\circ \pm 7.0^\circ$). Without external ADS-B state vectors (active runway at ~11:09 UTC), this remains an unvalidated operational hypothesis (see [docs/band-order.md](docs/band-order.md)).
+- **Runway axis alignment**: The measured heading ($117.4^\circ \pm 7.0^\circ$) differs by **$0.7^\circ (\pm 7.0^\circ)$** from the geodetic runway axis ($116.7^\circ$) calculated directly from official ENAIRE AIP threshold coordinates.
+- **Surface meteorological context**: Historical Open-Meteo reanalysis (interpolated to the product sensing start time $11:09:40\text{ UTC}$, noting that target overpass may differ by a few seconds) shows ground-level temperature of $28.9^\circ\text{C}$, QNH $1014.4\text{ hPa}$, and a surface wind of $10.6\text{ km/h}$ from $014^\circ$. These values describe the local surface atmosphere at 10 m AGL as environmental context without causal interpretation.
 
 ---
 

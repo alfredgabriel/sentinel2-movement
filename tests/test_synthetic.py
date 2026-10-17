@@ -102,3 +102,60 @@ def test_synthetic_moving_aircraft_recovery() -> None:
 
     # Verification: uncertainty interval contains true value
     assert result.speed_kmh_min <= true_speed_kmh <= result.speed_kmh_max
+
+
+def test_synthetic_moving_aircraft_recovery_blue_first() -> None:
+    """Simulate an aircraft under the blue-first acquisition sequence."""
+    from s2motion.constants import get_band_timing, get_expected_green_fraction
+
+    true_speed_kmh = 300.0
+    true_speed_mps = true_speed_kmh / 3.6
+    true_speed_px_per_s = true_speed_mps / DEFAULT_PIXEL_SIZE_M
+    true_heading_deg = 300.0  # Departure heading
+
+    x0, y0 = 60.0, 60.0
+    heading_rad = math.radians(true_heading_deg)
+    vx_raster = true_speed_px_per_s * math.sin(heading_rad)
+    vy_raster = -true_speed_px_per_s * math.cos(heading_rad)
+
+    timings = get_band_timing("blue-first")
+    size = 120
+    ys, xs = np.mgrid[0:size, 0:size]
+    sigma = 1.3
+    amplitude = 250.0
+    background_level = 60.0
+
+    bands: dict[str, np.ndarray] = {}
+    seeds: dict[str, tuple[float, float]] = {}
+
+    for band_name in ("blue", "green", "red"):
+        t = timings[band_name]
+        true_x = x0 + vx_raster * t
+        true_y = y0 + vy_raster * t
+
+        dist_sq = (xs - true_x) ** 2 + (ys - true_y) ** 2
+        blob = amplitude * np.exp(-dist_sq / (2.0 * sigma**2))
+        band = (
+            background_level + blob + np.random.default_rng(123).normal(0.0, 1.0, size=(size, size))
+        )
+        bands[band_name] = band.astype(np.float32)
+        seeds[band_name] = (float(round(true_x)), float(round(true_y)))
+
+    detected_centroids = detect_all_centroids(bands, seeds, radius=3, threshold_ratio=0.5)
+
+    result = calculate_motion(
+        red_centroid=detected_centroids["red"],
+        blue_centroid=detected_centroids["blue"],
+        green_centroid=detected_centroids["green"],
+        pixel_size_m=DEFAULT_PIXEL_SIZE_M,
+        band_order="blue-first",
+    )
+
+    speed_error_rel = abs(result.speed_kmh - true_speed_kmh) / true_speed_kmh
+    assert speed_error_rel < 0.05
+    assert abs(result.heading_deg - true_heading_deg) < 2.0
+    assert result.collinearity_px < 0.5
+    exp_frac = get_expected_green_fraction("blue-first")
+    assert abs(result.green_relative_fraction - exp_frac) < 0.05
+    assert result.speed_kmh_min <= true_speed_kmh <= result.speed_kmh_max
+    assert "Blue -> Green -> Red" in result.summary()

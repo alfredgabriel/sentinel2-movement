@@ -108,8 +108,8 @@ No velocity estimate is ever reported as an isolated point value without this co
 
 ---
 
-## 6. Environmental Surface Meteorological Telemetry
-Ground velocity ($v_{\text{ground}}$) measured from satellite parallax captures motion relative to the Earth's surface. To provide local environmental context, `s2motion` queries historical surface meteorological reanalysis (via Open-Meteo calibrated with ECMWF ERA5) linearly interpolated to the scene timestamp.
+## 6. Environmental Surface Meteorological Context
+Ground velocity ($v_{\text{ground}}$) measured from satellite parallax captures horizontal motion relative to the Earth's surface. To provide local environmental context, `s2motion` queries historical surface meteorological reanalysis (via Open-Meteo calibrated with ECMWF ERA5) linearly interpolated to the scene timestamp.
 
 ### 6.1 Wind Decomposition along Flight Track
 Let $v_{\text{wind}}$ be the 10 m AGL surface wind speed and $\theta_{\text{wind}}$ be the meteorological wind origin angle ($0^\circ$ = North, $90^\circ$ = East, angle *from* which the wind blows).
@@ -117,7 +117,7 @@ For an aircraft with ground track heading $\theta_{\text{track}}$:
 
 $$\Delta \theta = \theta_{\text{wind}} - \theta_{\text{track}}$$
 
-The wind vector is decomposed into:
+The surface wind vector is decomposed into:
 - **Headwind Component ($v_{\text{hw}}$)**:
   $$v_{\text{hw}} = v_{\text{wind}} \cdot \cos(\Delta \theta)$$
   Where $v_{\text{hw}} > 0$ denotes headwind and $v_{\text{hw}} < 0$ denotes tailwind.
@@ -126,27 +126,4 @@ The wind vector is decomposed into:
   $$v_{\text{xw}} = v_{\text{wind}} \cdot \sin(\Delta \theta)$$
   Where $v_{\text{xw}} > 0$ denotes crosswind from the right and $v_{\text{xw}} < 0$ from the left.
 
-### 6.2 Surface True Airspeed (TAS) Resolution
-In flight mechanics, resolving True Airspeed ($v_{\text{TAS}}$) relative to ground speed ($v_{\text{GS}}$) and the along-track wind component is given by:
-
-$$v_{\text{TAS}} = v_{\text{GS}} + v_{\text{hw}} = v_{\text{GS}} + v_{\text{wind}} \cdot \cos(\theta_{\text{wind}} - \theta_{\text{track}})$$
-
-For low-altitude flight, this provides the aerodynamic speed relative to the local air mass.
-
-### 6.3 Density Altitude (DA)
-Under the International Standard Atmosphere (ICAO ISA):
-- Sea level standard pressure: $P_0 = 1013.25\text{ hPa}$
-- Sea level standard temperature: $T_0 = 15.0^\circ\text{C}$
-- Lapse rate: $L = 0.0065\text{ K/m} \approx 1.98^\circ\text{C} / 1,000\text{ ft}$
-
-From station elevation ($h_{\text{elev}}$) and observed surface pressure ($QNH$):
-
-$$\text{PA} = h_{\text{elev}} + (1013.25 - QNH) \times 27.2\text{ ft/hPa}$$
-
-The ISA standard temperature at this pressure altitude is:
-$$T_{\text{ISA}} = 15^\circ\text{C} - 0.0019812 \times \text{PA}_{[\text{ft}]}$$
-
-The **Density Altitude** (the altitude in the standard atmosphere at which the air density equals the observed air density) is:
-$$\text{DA} = \text{PA} + 118.8 \cdot (T_{\text{observed}} - T_{\text{ISA}})$$
-
-*Note: These meteorological parameters capture ground-level ambient state (10 m AGL) for contextual documentation and do not imply physical causality for aircraft ground velocity or flight phase.*
+*Note: Surface meteorological variables (ambient temperature, surface pressure, 10 m AGL wind speed and direction) capture ground-level ambient state for environmental documentation. They do not imply physical causality for aircraft ground velocity or flight phase, and true airspeed (TAS) or density altitude at aircraft flight level are not inferred from surface measurements.*

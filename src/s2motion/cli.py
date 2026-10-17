@@ -153,6 +153,10 @@ def cmd_measure(args: argparse.Namespace) -> int:
         if "figure" in out_cfg:
             out_fig = Path(out_cfg["figure"])
 
+        motion_cfg = cfg.get("motion", {})
+        if "band_order" in motion_cfg:
+            band_order = motion_cfg["band_order"]
+
     # 2. Apply CLI overrides
     if args.date:
         date_str = args.date
@@ -160,6 +164,8 @@ def cmd_measure(args: argparse.Namespace) -> int:
         bbox = tuple(args.bbox)
     if args.runway_heading is not None:
         runway_heading = args.runway_heading
+    if getattr(args, "band_order", None):
+        band_order = args.band_order
     if getattr(args, "weather", False):
         weather_enabled = True
     if getattr(args, "elevation", None) is not None:
@@ -194,17 +200,22 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
     # 3. Georeference centroids to WGS84 and compute runway proximity if applicable
     runway_prox = None
+    ref_band = "blue" if band_order == "blue-first" else "red"
     if meta.get("transform") is not None and meta.get("crs") is not None:
-        col_r, row_r = centroids["red"]
-        lon_r, lat_r = pixel_to_wgs84(col_r, row_r, meta["transform"], meta["crs"])
-        print(f"\nGeoreferenced Red centroid: lat {lat_r:.6f}°, lon {lon_r:.6f}° (WGS84)")
+        col_ref, row_ref = centroids[ref_band]
+        lon_ref, lat_ref = pixel_to_wgs84(col_ref, row_ref, meta["transform"], meta["crs"])
+        print(
+            f"\nGeoreferenced {ref_band.capitalize()} centroid: lat {lat_ref:.6f}°, lon {lon_ref:.6f}° (WGS84, est. spatial uncertainty: ±15 m)"
+        )
 
         if runway_heading is not None:
             runway_prox = calculate_runway_proximity(
-                obj_lon=lon_r,
-                obj_lat=lat_r,
+                obj_lon=lon_ref,
+                obj_lat=lat_ref,
                 thr12_latlon=LEBB_RUNWAY_12_THR_WGS84,
                 thr30_latlon=LEBB_RUNWAY_30_THR_WGS84,
+                centroid_name=ref_band.capitalize(),
+                uncertainty_m=15.0,
             )
 
     print("\nCalculating kinematics and uncertainty...")
@@ -213,6 +224,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         blue_centroid=centroids["blue"],
         green_centroid=centroids.get("green"),
         pixel_size_m=DEFAULT_PIXEL_SIZE_M,
+        band_order=band_order,
         runway_heading_deg=runway_heading,
         runway_proximity=runway_prox,
     )
@@ -229,7 +241,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
                 pass
 
         print(
-            f"Fetching Open-Meteo weather for ({w_lat:.3f}, {w_lon:.3f}) at {date_str} (scene time: {dt_val})..."
+            f"Fetching Open-Meteo weather for ({w_lat:.3f}, {w_lon:.3f}) at {date_str} (product sensing time: {dt_val}, target overpass may differ by seconds)..."
         )
         try:
             weather_obs = fetch_historical_weather(
@@ -313,9 +325,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--runway-heading", type=float, help="Runway heading in degrees clockwise from North"
     )
     p_measure.add_argument(
+        "--band-order",
+        choices=["red-first", "blue-first"],
+        default="red-first",
+        help="Temporal acquisition order across bands: 'red-first' (Red->Green->Blue, default) or 'blue-first' (Blue->Green->Red)",
+    )
+    p_measure.add_argument(
         "--weather",
         action="store_true",
-        help="Fetch historical weather from Open-Meteo and compute aerodynamic telemetry (TAS, headwind, density altitude)",
+        help="Fetch historical surface weather from Open-Meteo as environmental context (10m AGL)",
     )
     p_measure.add_argument(
         "--elevation",

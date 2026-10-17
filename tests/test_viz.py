@@ -1,4 +1,6 @@
-"""Tests for visualization functions."""
+import matplotlib
+
+matplotlib.use("Agg")
 
 import numpy as np
 import pytest

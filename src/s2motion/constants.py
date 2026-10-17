@@ -51,12 +51,70 @@ BAND_ALIASES: Final[dict[str, str]] = {
 # Chronological order of ground imaging for a moving object: Red -> Green -> Blue
 CHRONOLOGICAL_GROUND_ORDER: Final[tuple[str, ...]] = ("red", "green", "blue")
 
-# Total time elapsed from Red to Blue in seconds
+# Total time elapsed between Red and Blue bands in seconds
 DELTA_T_RED_BLUE_S: Final[float] = 1.005
 
 # Theoretical relative position of green along the red-to-blue trajectory:
 # (t_green - t_red) / (t_blue - t_red) = 0.478 / 1.005 ~= 0.4756
 EXPECTED_GREEN_RELATIVE_FRACTION: Final[float] = 0.478 / DELTA_T_RED_BLUE_S
+
+
+def get_band_timing(order: str = "red-first") -> dict[str, float]:
+    """Return ground acquisition timing (in seconds) for 10m bands under specified order.
+
+    Args:
+        order: Temporal direction, either 'red-first' (empirically determined default)
+               or 'blue-first'.
+
+    Returns:
+        Mapping of band name to acquisition time in seconds from initial band exposure.
+
+    Raises:
+        ValueError: If order is not 'red-first' or 'blue-first'.
+    """
+    if order == "red-first":
+        return {
+            "red": 0.000,
+            "green": 0.478,  # 1.005 - 0.527 s
+            "nir": 0.741,  # 1.005 - 0.264 s
+            "blue": 1.005,
+        }
+    elif order == "blue-first":
+        return {
+            "blue": 0.000,
+            "nir": 0.264,
+            "green": 0.527,
+            "red": 1.005,
+        }
+    else:
+        raise ValueError(f"Invalid band order '{order}'. Must be 'red-first' or 'blue-first'.")
+
+
+def get_expected_green_fraction(order: str = "red-first") -> float:
+    """Return expected longitudinal fraction of Green between origin and destination bands.
+
+    For 'red-first' (Red -> Green -> Blue):
+        (t_green - t_red) / (t_blue - t_red) = 0.478 / 1.005 ~= 0.4756
+
+    For 'blue-first' (Blue -> Green -> Red):
+        (t_green - t_blue) / (t_red - t_blue) = 0.527 / 1.005 ~= 0.5244
+
+    Args:
+        order: Temporal direction, either 'red-first' or 'blue-first'.
+
+    Returns:
+        Expected relative longitudinal fraction (0.0 to 1.0).
+
+    Raises:
+        ValueError: If order is not 'red-first' or 'blue-first'.
+    """
+    if order == "red-first":
+        return 0.478 / DELTA_T_RED_BLUE_S
+    elif order == "blue-first":
+        return 0.527 / DELTA_T_RED_BLUE_S
+    else:
+        raise ValueError(f"Invalid band order '{order}'. Must be 'red-first' or 'blue-first'.")
+
 
 # ---------------------------------------------------------------------------
 # Sensor and Physical Constants

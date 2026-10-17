@@ -228,6 +228,12 @@ def interpolate_weather_from_hourly(
 
     Interpolates between adjacent hourly steps when a full ISO 8601 UTC datetime is provided.
 
+    Note on scene timestamp:
+        The datetime string from Sentinel-2 STAC metadata is the product sensing
+        start time for the datastrip or tile acquisition. The actual satellite
+        overpass time over an individual moving target or ground feature may
+        differ by several seconds depending on along-track line acquisition timing.
+
     Args:
         hourly: Dictionary containing hourly series from Open-Meteo.
         date_str: Calendar date string (YYYY-MM-DD).
