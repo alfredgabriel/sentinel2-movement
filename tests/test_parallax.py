@@ -58,17 +58,14 @@ class TestSyntheticStaticElevatedTarget:
         First band (Red) images object forward along track; trailing band (Blue) images
         it behind. The apparent displacement vector from Red to Blue points OPPOSITE
         to the ground track heading (194.7° - 180° = 14.7°).
+        Under the complete pushbroom projection, apparent ground speed is (h / (H - h)) * v_track.
         """
         track = calculate_satellite_ground_track(latitude_deg=43.3)
         h = 10000.0
         H = 786000.0
-        dt = 1.005
 
-        # Parallax displacement vector = -(h / H) * v_track * dt
-        parallax_disp = (h / H) * track.ground_track_speed_mps * dt
-        apparent_speed_mps = parallax_disp / dt  # = (h / H) * v_track ~= 85.5 m/s
-
-        # Apparent heading is opposite to satellite ground track: (194.71 - 180) = 14.71 deg
+        # Exact ground projection disparity for static target
+        apparent_speed_mps = (h / (H - h)) * track.ground_track_speed_mps
         apparent_heading_deg = (track.ground_track_heading_deg - 180.0) % 360.0
 
         # Run correction under red-first
@@ -94,10 +91,8 @@ class TestSyntheticStaticElevatedTarget:
         track = calculate_satellite_ground_track(latitude_deg=43.3)
         h = 10000.0
         H = 786000.0
-        dt = 1.005
 
-        parallax_disp = (h / H) * track.ground_track_speed_mps * dt
-        apparent_speed_mps = parallax_disp / dt
+        apparent_speed_mps = (h / (H - h)) * track.ground_track_speed_mps
         apparent_heading_deg = (track.ground_track_heading_deg - 180.0) % 360.0
 
         res = correct_parallax(
@@ -137,7 +132,7 @@ class TestParallaxHighAltitudeCase2:
     """Validate Case 2 high-altitude parallax correction outputs."""
 
     def test_case_2_nominal_10500m_red_first(self) -> None:
-        """Case 2 under red-first at nominal FL345 (10.5 km)."""
+        """Case 2 under red-first at nominal FL345 (10.5 km) with complete model."""
         res = correct_parallax(
             apparent_speed_mps=319.82,  # 1151.3 km/h
             apparent_heading_deg=330.4,
@@ -148,21 +143,21 @@ class TestParallaxHighAltitudeCase2:
             band_order="red-first",
         )
 
-        # Reproduces 947 km/h (+/- 1 km/h)
-        assert 946.0 < res.corrected_speed_kmh < 948.5
-        assert math.isclose(res.corrected_speed_kmh, 947.3, abs_tol=0.5)
+        # Complete model produces 932.4 km/h (+/- 1 km/h)
+        assert 931.0 < res.corrected_speed_kmh < 934.0
+        assert math.isclose(res.corrected_speed_kmh, 932.4, abs_tol=0.5)
 
-        # True heading is ~316.6 deg
+        # True heading is ~316.4 deg
         assert 315.5 < res.corrected_heading_deg < 317.5
 
-        # Speed delta is ~ -204 km/h
-        assert math.isclose(res.delta_speed_kmh, -204.0, abs_tol=0.5)
+        # Speed delta is ~ -219 km/h
+        assert math.isclose(res.delta_speed_kmh, -218.9, abs_tol=0.5)
 
-        # Range [9000, 12000] m spans 924 - 973 km/h
+        # Range [9000, 12000] m spans 907 - 960 km/h
         assert res.corrected_speed_min_kmh is not None
         assert res.corrected_speed_max_kmh is not None
-        assert 923.0 < res.corrected_speed_min_kmh < 925.0
-        assert 971.5 < res.corrected_speed_max_kmh < 973.5
+        assert 905.0 < res.corrected_speed_min_kmh < 908.0
+        assert 958.0 < res.corrected_speed_max_kmh < 961.0
 
     def test_case_2_nominal_10500m_blue_first(self) -> None:
         """Case 2 counter-hypothesis under blue-first at nominal FL345 (10.5 km)."""
@@ -176,21 +171,45 @@ class TestParallaxHighAltitudeCase2:
             band_order="blue-first",
         )
 
-        # Blue-first reinforces velocity -> supersonic 1401 km/h (+/- 1 km/h)
-        assert 1400.0 < res.corrected_speed_kmh < 1402.0
-        assert math.isclose(res.corrected_speed_kmh, 1401.0, abs_tol=0.5)
+        # Blue-first reinforces velocity -> supersonic 1385.8 km/h (+/- 1 km/h)
+        assert 1384.0 < res.corrected_speed_kmh < 1387.0
+        assert math.isclose(res.corrected_speed_kmh, 1385.8, abs_tol=0.5)
 
-        # True heading is ~159.7 deg
+        # True heading is ~159.8 deg
         assert 158.5 < res.corrected_heading_deg < 161.0
 
-        # Speed delta is ~ +250 km/h
-        assert math.isclose(res.delta_speed_kmh, 249.6, abs_tol=0.5)
+        # Speed delta is ~ +234 km/h
+        assert math.isclose(res.delta_speed_kmh, 234.4, abs_tol=0.5)
 
-        # Range [9000, 12000] m spans 1363 - 1439 km/h
+        # Range [9000, 12000] m spans 1350 - 1422 km/h
         assert res.corrected_speed_min_kmh is not None
         assert res.corrected_speed_max_kmh is not None
-        assert 1362.0 < res.corrected_speed_min_kmh < 1365.0
-        assert 1438.0 < res.corrected_speed_max_kmh < 1440.0
+        assert 1349.0 < res.corrected_speed_min_kmh < 1352.0
+        assert 1420.0 < res.corrected_speed_max_kmh < 1423.0
+
+    def test_linear_vs_complete_model_difference(self) -> None:
+        """Document that simplified linear model differs by ~15 km/h at 10.5 km cruise."""
+        res_complete = correct_parallax(
+            apparent_speed_mps=319.82,
+            apparent_heading_deg=330.4,
+            altitude_m=10500.0,
+            latitude_deg=43.3,
+            band_order="red-first",
+        )
+        # Simplified linear approximation: v_true = v_app + (h / H) * v_track
+        track = calculate_satellite_ground_track(latitude_deg=43.3)
+        head_rad = math.radians(330.4)
+        v_app_n = 319.82 * math.cos(head_rad)
+        v_app_e = 319.82 * math.sin(head_rad)
+        scale = 10500.0 / 786000.0
+        v_lin_n = v_app_n + scale * track.v_north_mps
+        v_lin_e = v_app_e + scale * track.v_east_mps
+        v_lin_kmh = math.hypot(v_lin_n, v_lin_e) * 3.6
+
+        diff_kmh = v_lin_kmh - res_complete.corrected_speed_kmh
+        # Difference is approximately 14.9 km/h (~15 km/h)
+        assert 14.0 < diff_kmh < 16.0
+        assert math.isclose(diff_kmh, 14.9, abs_tol=0.5)
 
 
 class TestParallaxErrorsAndEdgeCases:

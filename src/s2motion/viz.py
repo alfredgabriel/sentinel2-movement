@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 
-from s2motion.constants import GROUND_ACQUISITION_TIMING_S
+from s2motion.constants import COPERNICUS_ATTRIBUTION, GROUND_ACQUISITION_TIMING_S
 from s2motion.detect import subtract_local_background
 from s2motion.measure import MeasurementResult
 
@@ -260,6 +260,16 @@ def create_annotated_figure(
             ax_sub.set_yticks([])
 
     fig.suptitle(title, fontsize=14, fontweight="bold")
+    fig.text(
+        0.99,
+        0.005,
+        COPERNICUS_ATTRIBUTION,
+        fontsize=7.5,
+        color="#777777",
+        style="italic",
+        ha="right",
+        va="bottom",
+    )
 
     if out_path:
         out_p = Path(out_path)

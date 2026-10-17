@@ -64,12 +64,19 @@ def test_lebb_runway_constants() -> None:
 
 
 def test_citations_content() -> None:
-    """Verify verified citations are fully populated."""
+    """Verify verified citations and Copernicus attribution are fully populated."""
+    from s2motion.constants import COPERNICUS_ATTRIBUTION
+
     assert "krauss_2021" in CITATIONS
     assert "binet_2022" in CITATIONS
+    assert "heiselberg_2019" in CITATIONS
+    assert "heiselberg_2021" in CITATIONS
     assert "Thomas Krauß" in CITATIONS["krauss_2021"]["authors"]
     assert "10.5194/isprs-annals-V-1-2021-17-2021" == CITATIONS["krauss_2021"]["doi"]
     assert "10.5194/isprs-annals-V-1-2022-57-2022" == CITATIONS["binet_2022"]["doi"]
+    assert "10.3390/s19132873" == CITATIONS["heiselberg_2019"]["doi"]
+    assert "10.3390/rs13153016" == CITATIONS["heiselberg_2021"]["doi"]
+    assert "Copernicus" in COPERNICUS_ATTRIBUTION
 
 
 def test_get_band_timing_and_green_fraction() -> None:

@@ -6,9 +6,11 @@ cloud height following Krauß (2021).
 
 Important Scientific Note:
     Clouds are subject to ambient wind advection during the ~1.005 s inter-band delay.
-    Horizontal wind speed (e.g. 50 km/h = 13.9 m/s) induces ~14 m displacement,
-    introducing an altitude ambiguity of ~1.6 km. Hence, cloud disparity alone cannot
-    unconditionally resolve band order without independent wind field telemetry.
+    Ambiguity depends on the along-track wind component at cloud height: with wind predominantly
+    perpendicular to the track, along-track displacement is small compared to high-altitude
+    cirrus parallax (~90 m at 10.5 km). However, significant along-track wind components
+    (e.g. 50 km/h = 13.9 m/s along-track -> 14 m drift) introduce an altitude shift of ~1.6 km,
+    which should be considered when assessing band order consistency.
 
 References:
     - Krauß, T. (2021). "EXTRACTION OF CLOUD HEIGHTS FROM SENTINEL-2 MULTISPECTRAL IMAGES",
@@ -188,10 +190,12 @@ def analyze_cloud_parallax(
     sigma_h = (sigma_disp_m * satellite_altitude_m) / (track.ground_track_speed_mps * delta_t_s)
 
     wind_note = (
-        "WIND AMBIGUITY NOTICE: Inferred height assumes zero horizontal cloud motion. "
-        "Advection by ambient upper-air wind during the 1.005 s delay displaces the cloud "
-        "by v_wind * dt (e.g. 50 km/h = 13.9 m/s wind -> 14 m displacement = ~1.6 km height error). "
-        "Therefore, cloud disparity cannot resolve sensor band order without co-located 3D wind soundings."
+        "WIND ADVECTION SENSITIVITY: Inferred altitude depends primarily on the along-track "
+        "component of upper-air wind during the 1.005 s delay. For winds predominantly cross-track, "
+        "along-track displacement is small relative to high cirrus parallax (~90 m at 10.5 km). "
+        "However, significant along-track wind components (e.g. 50 km/h = 13.9 m/s along-track -> "
+        "14 m drift) introduce an altitude shift of ~1.6 km, which should be accounted for when "
+        "interpreting the disparity."
     )
 
     return CloudDisparityResult(

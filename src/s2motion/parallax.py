@@ -196,16 +196,14 @@ def correct_parallax(
         the last band by:
             delta_r_parallax = (h / H) * v_track * delta_t (directed along track).
 
-        For 'red-first' (Red leading, Blue trailing):
-            Apparent vector from Red to Blue points backwards relative to parallax:
-            delta_r_apparent = delta_r_true - (h / H) * v_track * delta_t
-            v_true = v_apparent + (h / H) * v_track
+        The complete geometric pushbroom model projects rays from satellite altitude H through target
+        altitude h to the ground ellipsoid:
+            v_apparent = (H / (H - h)) * v_true - (h / (H - h)) * v_track
+        Multiplying by (1 - h / H):
+            v_true = (1 - h / H) * v_apparent + (h / H) * v_track
 
-        For 'blue-first' (Blue trailing, Red leading):
-            Apparent vector from Blue to Red:
-            v_true = v_apparent + (h / H) * v_track
-            (where v_apparent is defined from Blue to Red, and adding (h/H)*v_track aligns with
-            the forward ground vector, resulting in a significantly higher corrected velocity).
+        This complete form reduces the apparent velocity term by (h / H) * v_apparent (~15 km/h at 10.5 km)
+        compared to the simplified linear approximation v_apparent + (h / H) * v_track.
 
     Args:
         apparent_speed_mps: Measured uncorrected ground speed in m/s.
@@ -245,9 +243,10 @@ def correct_parallax(
 
     def _solve_for_h(h_val: float) -> tuple[float, float, float]:
         scale = h_val / satellite_altitude_m
-        # Vector addition: v_true = v_apparent + (h / H) * v_track
-        v_n = v_app_n + scale * track.v_north_mps
-        v_e = v_app_e + scale * track.v_east_mps
+        # Complete pushbroom model: v_true = (1 - h/H) * v_apparent + (h/H) * v_track
+        # Accounts for finite target altitude (reduces apparent speed by ~15 km/h at 10.5 km cruise vs linear form)
+        v_n = (1.0 - scale) * v_app_n + scale * track.v_north_mps
+        v_e = (1.0 - scale) * v_app_e + scale * track.v_east_mps
         v_mag = math.hypot(v_n, v_e)
         heading = (math.degrees(math.atan2(v_e, v_n)) + 360.0) % 360.0
         return v_mag, heading, scale * track.ground_track_speed_mps

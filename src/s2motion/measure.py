@@ -62,10 +62,12 @@ class MeasurementResult:
     expected_green_fraction: float
     fraction_deviation: float
     band_order: str = "red-first"
-    runway_diff_deg: float | None = None
     runway_proximity: Any | None = None
+    runway_diff_deg: float | None = None
     aero: AerodynamicResult | None = None
     parallax: Any | None = None
+    contrail_heading_deg: float | None = None
+    contrail_heading_diff_deg: float | None = None
 
     def summary(self) -> str:
         """Format a human-readable multi-line summary."""
@@ -86,6 +88,49 @@ class MeasurementResult:
             f"  - Green collinearity offset: {self.collinearity_px:.2f} px (expected < ~1.0 px)",
             f"  - Green relative position:  {self.green_relative_fraction:.2f} (expected: {self.expected_green_fraction:.2f}, delta: {self.fraction_deviation:.2f})",
         ]
+        if self.contrail_heading_deg is not None:
+            lines.append("------------------------------------------------------------")
+            lines.append("Contrail Axis Comparison:")
+            lines.append(f"  - Contrail Axis Bearing:    {self.contrail_heading_deg:.1f}°")
+            if self.contrail_heading_diff_deg is not None:
+                lines.append(
+                    f"  - Apparent Heading Diff:    {self.contrail_heading_diff_deg:+.1f}° (apparent: {self.heading_deg:.1f}°)"
+                )
+            if self.parallax is not None:
+                from s2motion.parallax import correct_parallax
+
+                app_hdg_red = (
+                    self.heading_deg
+                    if self.band_order == "red-first"
+                    else (self.heading_deg + 180.0) % 360.0
+                )
+                app_hdg_blue = (app_hdg_red + 180.0) % 360.0
+                px_red = correct_parallax(
+                    apparent_speed_mps=self.speed_mps,
+                    apparent_heading_deg=app_hdg_red,
+                    altitude_m=self.parallax.altitude_m,
+                    band_order="red-first",
+                    delta_t_s=self.delta_t_s,
+                )
+                px_blue = correct_parallax(
+                    apparent_speed_mps=self.speed_mps,
+                    apparent_heading_deg=app_hdg_blue,
+                    altitude_m=self.parallax.altitude_m,
+                    band_order="blue-first",
+                    delta_t_s=self.delta_t_s,
+                )
+                diff_red = (
+                    (px_red.corrected_heading_deg - self.contrail_heading_deg + 180.0) % 360.0
+                ) - 180.0
+                diff_blue = (
+                    (px_blue.corrected_heading_deg - self.contrail_heading_deg + 180.0) % 360.0
+                ) - 180.0
+                lines.append(
+                    f"  - Red-First Corrected:      {px_red.corrected_heading_deg:.1f}° (diff vs contrail: {diff_red:+.1f}°)"
+                )
+                lines.append(
+                    f"  - Blue-First Corrected:     {px_blue.corrected_heading_deg:.1f}° (diff vs contrail: {diff_blue:+.1f}°)"
+                )
         if self.runway_diff_deg is not None:
             lines.append(
                 f"  - Runway axis difference:   {self.runway_diff_deg:.1f} deg (+/-{self.heading_uncertainty_deg:.1f} deg)"
@@ -136,6 +181,7 @@ def calculate_motion(
     runway_proximity: Any | None = None,
     aero: AerodynamicResult | None = None,
     parallax: Any | None = None,
+    contrail_points: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> MeasurementResult:
     """Calculate displacement, heading, speed and coherence metrics.
 
@@ -253,6 +299,18 @@ def calculate_motion(
         axis_diff = abs((heading_deg - effective_runway_heading + 90.0) % 180.0 - 90.0)
         runway_diff_deg = axis_diff
 
+    # Contrail axis check
+    contrail_heading_deg = None
+    contrail_heading_diff_deg = None
+    if contrail_points is not None:
+        p_tail, p_head = contrail_points
+        c_dx_east = float(p_head[0]) - float(p_tail[0])
+        c_dy_north = -(float(p_head[1]) - float(p_tail[1]))
+        c_dist = math.hypot(c_dx_east, c_dy_north)
+        if c_dist > 1e-6:
+            contrail_heading_deg = (math.degrees(math.atan2(c_dx_east, c_dy_north)) + 360.0) % 360.0
+            contrail_heading_diff_deg = (heading_deg - contrail_heading_deg + 180.0) % 360.0 - 180.0
+
     return MeasurementResult(
         dx_px=dx_px,
         dy_px=dy_px,
@@ -281,4 +339,6 @@ def calculate_motion(
         runway_proximity=runway_proximity,
         aero=aero,
         parallax=parallax,
+        contrail_heading_deg=contrail_heading_deg,
+        contrail_heading_diff_deg=contrail_heading_diff_deg,
     )

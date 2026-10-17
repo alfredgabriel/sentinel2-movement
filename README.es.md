@@ -144,7 +144,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
   - Disclaimer:               Flight altitude is a user-specified parameter, not an independently measured observable.
   - Parallax Shift:           90.2 m along satellite track (323 km/h apparent contribution)
   - Apparent Velocity:        1151 km/h [319.8 m/s] | Heading: 330.4°
-  - Parallax-Corrected Vel:   947 km/h [263.2 m/s] (range: 924 - 973 km/h) | Heading: 316.6° [-204 km/h vs apparent]
+  - Parallax-Corrected Vel:   932 km/h [259.0 m/s] (range: 907 - 960 km/h) | Heading: 316.4° [-219 km/h vs apparent]
 ============================================================
 ```
 
@@ -154,12 +154,12 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 - > [!CAUTION]
   > **Aviso sobre la altitud de vuelo**: La altitud de vuelo es un parámetro introducido por el usuario, no una magnitud medida de forma independiente. Se asume una cota nominal de crucero de $h = 10.5\text{ km}$ ($34.450\text{ ft}$) y un intervalo plausible de crucero de $[9.0, 12.0]\text{ km}$ ($29.500 - 39.400\text{ ft}$).
 - **Comparativa entre hipótesis de orden de bandas**:
-  - **Bajo `red-first` (por defecto)**: El avión vuela hacia el noroeste ($330.4^\circ$), en sentido opuesto al avance hacia el sur de la traza orbital ($194.7^\circ$). La corrección del paralaje hacia delante resta velocidad aparente:
-    - Altitud nominal $h = 10.5\text{ km}$: **$v_{\text{real}} = 947\text{ km/h}$** ($263.2\text{ m/s}$), rumbo corregido **$316.6^\circ$** ($\Delta v = -204\text{ km/h}$ respecto a la aparente).
-    - Intervalo de crucero $[9.0, 12.0]\text{ km}$: **$v_{\text{real}} \in [924, 973]\text{ km/h}$** (Mach $0.85 - 0.89$ a nivel de crucero), plenamente coherente con la envolvente de crucero de reactores comerciales modernos (A350, B787, B777).
+  - **Bajo `red-first` (por defecto)**: El avión vuela hacia el noroeste ($330.4^\circ$), en sentido opuesto al avance hacia el sur de la traza orbital ($194.7^\circ$). La corrección del paralaje hacia delante con el modelo completo ($\vec{v}_{\text{real}} = (1 - h/H)\vec{v}_{\text{aparente}} + (h/H)\vec{v}_{\text{traza}}$, que difiere en $\approx 15\text{ km/h}$ para $h = 10.5\text{ km}$ respecto a la aproximación lineal) reduce la velocidad horizontal:
+    - Altitud nominal $h = 10.5\text{ km}$: **$v_{\text{real}} = 932\text{ km/h}$** ($259.0\text{ m/s}$), rumbo corregido **$316.4^\circ$** ($\Delta v = -219\text{ km/h}$ respecto a la aparente).
+    - Intervalo de crucero $[9.0, 12.0]\text{ km}$: **$v_{\text{real}} \in [907, 960]\text{ km/h}$** ($\approx 907 - 960\text{ km/h}$). Esta velocidad sobre el suelo es compatible con crucero de reactor comercial; el viento a cota de vuelo es desconocido.
   - **Bajo `blue-first` (contrahipótesis)**: La inversión del vector temporal sitúa el rumbo aparente hacia el sureste ($150.4^\circ$), en el mismo sentido general que el satélite. El paralaje se suma a la velocidad aparente:
-    - Altitud nominal $h = 10.5\text{ km}$: **$v_{\text{real}} = 1401\text{ km/h}$** ($389.2\text{ m/s}$), rumbo corregido **$159.7^\circ$** ($\Delta v = +250\text{ km/h}$).
-    - Intervalo de crucero $[9.0, 12.0]\text{ km}$: **$v_{\text{real}} \in [1363, 1439]\text{ km/h}$** (Mach $1.25 - 1.32$, régimen supersónico, físicamente inverosímil para aviación comercial civil).
+    - Altitud nominal $h = 10.5\text{ km}$: **$v_{\text{real}} = 1386\text{ km/h}$** ($385.0\text{ m/s}$), rumbo corregido **$159.8^\circ$** ($\Delta v = +234\text{ km/h}$).
+    - Intervalo de crucero $[9.0, 12.0]\text{ km}$: **$v_{\text{real}} \in [1350, 1422]\text{ km/h}$** ($\approx 1350 - 1422\text{ km/h}$). Régimen supersónico, físicamente inverosímil para aviación comercial civil.
 - Para la derivación matemática completa, véase [docs/method.md](docs/method.md) y [docs/band-order.md](docs/band-order.md).
 
 ---
@@ -172,7 +172,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 4. **Cinemática vectorial**: Vector de desplazamiento entre bandas extremas evaluado en $\Delta t = 1.005\text{ s}$.
 5. **Propagación rigurosa de errores**:
    - Error de localización de centroide $\pm 0.5\text{ px}$ por extremo.
-   - Incertidumbre de geolocalización espacial de $\pm 15\text{ m}$ calibrada contra especificaciones oficiales de Sentinel-2 (ESA MRD S2-RS-ESA-SY-0001, error circular $<10\text{ m}$ al 95.5% de confianza según Copernicus DQR ESA-EOPG-EOQC-RP-0001 con GRI).
+   - Incertidumbre de geolocalización espacial de $\pm 15\text{ m}$ calibrada contra especificaciones oficiales de Sentinel-2 (<20 m 2σ sin GCPs en WGS84 según [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) y <5 m de registro multitemporal con GRI según [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports); TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente).
    - Variabilidad temporal en $\Delta t$ de hasta $\pm 2\%$ por distorsión óptica y perturbaciones de altura del satélite ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - La velocidad siempre se presenta en un rango de confianza $[v_{\min}, v_{\max}]$.
 6. **Telemetría meteorológica de superficie**: Consulta a Open-Meteo para documentar la temperatura ambiente local, presión y viento a 10 m AGL como contexto ambiental de superficie.
@@ -197,12 +197,14 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
   ISPRS Annals, Vol. V-1-2022, pp. 57–66. DOI: [10.5194/isprs-annals-V-1-2022-57-2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)
 - **Heiselberg, H. (2019)**. *Aircraft and Ship Velocity Determination in Sentinel-2 Multispectral Images*.  
   Sensors, 19(13), 2873. DOI: [10.3390/s19132873](https://doi.org/10.3390/s19132873)
-- **Heiselberg, H. (2021)**. *Aircraft Detection above Clouds by Sentinel-2 MSI Parallax*.  
-  Remote Sensing, 13(12), 2327. DOI: [10.3390/rs13122327](https://doi.org/10.3390/rs13122327)
-- **European Space Agency (ESA)**. *Sentinel-2 Mission Requirements Document (MRD)*, S2-RS-ESA-SY-0001; y *Copernicus Sentinel-2 Data Quality Report*, ESA-EOPG-EOQC-RP-0001.
+- **Heiselberg, P., & Heiselberg, H. (2021)**. *Aircraft Detection above Clouds by Sentinel-2 MSI Parallax*.  
+  Remote Sensing, 13(15), 3016. DOI: [10.3390/rs13153016](https://doi.org/10.3390/rs13153016)
+- **European Space Agency (ESA)**. *Copernicus Sentinel-2 Mission Specification and Data Quality*.  
+  [ESA eoPortal Sentinel-2](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2); [Copernicus SentiWiki Quality Reports](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports). *(TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente)*.
 
 ---
 
-## 8. Licencia
+## 8. Atribución de datos y licencia
 
-Distribuido bajo la [Licencia MIT](LICENSE).
+- **Atribución de datos Copernicus Sentinel**: Contiene datos modificados de Copernicus Sentinel [2026].
+- **Licencia del código**: Distribuido bajo la [Licencia MIT](LICENSE).

@@ -1,11 +1,11 @@
-"""Unit tests for kinematics, heading, velocity, and uncertainty propagation."""
-
+import dataclasses
 import math
 
 import pytest
 
 from s2motion.constants import EXPECTED_GREEN_RELATIVE_FRACTION
 from s2motion.measure import calculate_motion
+from s2motion.parallax import correct_parallax
 
 
 def test_calculate_motion_cardinal_headings() -> None:
@@ -201,3 +201,38 @@ def test_calculate_motion_band_order_comparison() -> None:
     # 5. Invalid band order raises ValueError
     with pytest.raises(ValueError, match="Invalid band_order"):
         calculate_motion(red_centroid=r_pt, blue_centroid=b_pt, band_order="invalid")
+
+
+def test_calculate_motion_with_contrail() -> None:
+    """Verify contrail axis bearing and heading difference diagnostics."""
+    r_pt = (213.15, 252.47)
+    b_pt = (197.28, 224.52)
+    # Contrail tail southeast of red airframe position: e.g. row=240, col=300
+    p_tail = (240.0, 300.0)
+    p_head = (213.15, 252.47)
+
+    res = calculate_motion(
+        red_centroid=r_pt,
+        blue_centroid=b_pt,
+        contrail_points=(p_tail, p_head),
+    )
+
+    assert res.contrail_heading_deg is not None
+    assert 325.0 < res.contrail_heading_deg < 335.0
+    assert res.contrail_heading_diff_deg is not None
+    assert abs(res.contrail_heading_diff_deg) < 5.0
+    assert "Contrail Axis Comparison:" in res.summary()
+    assert "Contrail Axis Bearing:" in res.summary()
+
+    # Now attach parallax result and verify comparison with both orders
+    px_res = correct_parallax(
+        apparent_speed_mps=res.speed_mps,
+        apparent_heading_deg=res.heading_deg,
+        altitude_m=10500.0,
+        band_order="red-first",
+        delta_t_s=res.delta_t_s,
+    )
+    res_with_px = dataclasses.replace(res, parallax=px_res)
+    summary_px = res_with_px.summary()
+    assert "Red-First Corrected:" in summary_px
+    assert "Blue-First Corrected:" in summary_px

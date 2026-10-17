@@ -154,23 +154,26 @@ The parallax displacement vector from the first band to the last band is therefo
 
 $$\Delta \vec{r}_{\text{parallax}} = \vec{r}_{\text{last}} - \vec{r}_{\text{first}} = -\frac{h}{H} \vec{v}_{\text{track}} \Delta t$$
 
-For an aircraft moving with true horizontal velocity $\vec{v}_{\text{true}}$, the observed apparent displacement between the first and last exposures is:
+The complete geometric pushbroom model projects rays from the satellite at altitude $H$ through the target at altitude $h$ onto the cartographic ground plane:
 
-$$\Delta \vec{r}_{\text{apparent}} = \vec{v}_{\text{true}} \Delta t + \Delta \vec{r}_{\text{parallax}} = \vec{v}_{\text{true}} \Delta t - \frac{h}{H} \vec{v}_{\text{track}} \Delta t$$
+$$\vec{X}_{\text{ground}}(t) - \vec{X}_{\text{sat}}(t) = \frac{H}{H - h} \left[\vec{X}_{\text{obj}}(t) - \vec{X}_{\text{sat}}(t)\right]$$
 
-Dividing by the elapsed time $\Delta t$ yields the apparent velocity vector:
+Taking the time derivative yields the apparent ground velocity:
 
-$$\vec{v}_{\text{apparent}} = \vec{v}_{\text{true}} - \frac{h}{H} \vec{v}_{\text{track}}$$
+$$\vec{v}_{\text{apparent}} = \frac{H}{H - h} \vec{v}_{\text{true}} - \frac{h}{H - h} \vec{v}_{\text{track}}$$
 
-Solving for the true aircraft horizontal ground velocity:
+Multiplying by $1 - \frac{h}{H} = \frac{H - h}{H}$ and rearranging gives the **complete pushbroom parallax model**:
 
-$$\vec{v}_{\text{true}} = \vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$$
+$$\vec{v}_{\text{true}} = \left(1 - \frac{h}{H}\right) \vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$$
+
+*Comparison with Linear Approximation*:
+Neglecting the $(1 - h/H)$ term yields the simplified linear approximation $\vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$. At cruising altitude ($h = 10.5\text{ km}$, $H = 786\text{ km}$), $\frac{h}{H} \approx 1.34\%$, which reduces the apparent velocity term by $\frac{h}{H} v_{\text{apparent}} \approx 14.9\text{ km/h}$ ($\approx 15\text{ km/h}$) from $947\text{ km/h}$ to $932\text{ km/h}$. The complete model is implemented in `s2motion.parallax`.
 
 > [!IMPORTANT]
 > **Directional Consistency Check**:
 > - In descending orbit over mid-latitudes, the satellite ground track heading is $\approx 194.7^\circ$ (South-Southwest, so $v_{N,\text{track}} < 0$).
-> - When an aircraft flies northwest ($\sim 330^\circ$, $v_{N,\text{apparent}} > 0$), the vector addition $\vec{v}_{\text{true}} = \vec{v}_{\text{apparent}} + \frac{h}{H} \vec{v}_{\text{track}}$ adds a negative northward contribution, reducing the northward ground speed ($1151\text{ km/h} \to 947\text{ km/h}$ at $h = 10.5\text{ km}$).
-> - If `blue-first` were assumed, the apparent heading is southeast ($\sim 150^\circ$, $v_{N,\text{apparent}} < 0$), in the same general direction as the satellite track; the addition reinforces the velocity, yielding an unphysical supersonic speed ($1401\text{ km/h}$, Mach $>1.3$).
+> - When an aircraft flies northwest ($\sim 330^\circ$, $v_{N,\text{apparent}} > 0$), vector addition adds a negative northward contribution, reducing the northward ground speed ($1151\text{ km/h} \to 932\text{ km/h}$ at $h = 10.5\text{ km}$). The resulting ground speed is compatible with commercial jet airliner cruise; wind at flight altitude is unknown.
+> - If `blue-first` were assumed, the apparent heading is southeast ($\sim 150^\circ$, $v_{N,\text{apparent}} < 0$), in the same general direction as the satellite track; the addition reinforces the velocity, yielding an unphysical supersonic speed ($1386\text{ km/h}$).
 
 ### 7.2 Derivation of Satellite Ground Track Velocity
 Rather than assuming a constant inertial orbital velocity ($v_{\text{orb}} \approx 7.46\text{ km/s}$) or an arbitrary estimate ($7.2\text{ km/s}$), `s2motion` derives the ground track velocity directly from Sentinel-2 orbital mechanics:
@@ -201,9 +204,11 @@ Rather than assuming a constant inertial orbital velocity ($v_{\text{orb}} \appr
 
 *Uncertainty note on satellite speed*: Using the inertial speed ($7.46\text{ km/s}$) instead of the ground-track speed ($6.72\text{ km/s}$) would overestimate the parallax correction by $\approx 11\%$ ($\sim 25\text{ km/h}$ at cruise altitude). This difference is explicitly resolved by using the ground-track velocity.
 
-### 7.3 Verification against Literature
-- **Krauß (2021)**: Formulates cloud height from disparity $d$ as $h = \frac{d \cdot h_o}{v_o \cdot \Delta t}$, which is identical to our displacement formula $d = \frac{h}{H} v_{\text{track}} \Delta t$.
-- **Heiselberg (2019, 2021)**: Models observed multi-band position as $\mathbf{r}_m = \mathbf{r}_0 + \mathbf{v}\Delta t_m + h \tan\theta_v \hat{\mathbf{u}}_{\text{view}}$, confirming the forward look angle parallax orientation.
+### 7.3 Literature Context & Sign Validation Integrity
+- **Physical Sign Origin**: The sign of the parallax correction originates directly from the pushbroom sensor geometry: the detector strip that captures earlier looks further forward along-track ($\theta_1 > \theta_2$), projecting an elevated object forward in the earlier exposure relative to the later exposure.
+- **Role of Krauß (2021)**: Krauß (2021) establishes the relative band time delays ($\Delta t$) and the magnitude of the disparity formula ($h = \frac{d \cdot H}{v \cdot \Delta t}$), but indexes delays arbitrarily from B02 ($0.000\text{ s}$) and does *not* validate the physical temporal sequence of ground exposures.
+- **Role of Heiselberg (2019, 2021)**: Models observed multi-band positions as $\mathbf{r}_m = \mathbf{r}_0 + \mathbf{v}\Delta t_m + h \tan\theta_v \hat{\mathbf{u}}_{\text{view}}$, confirming the forward look angle parallax orientation.
+- **Synthetic Test Scope**: Synthetic tests in `tests/test_parallax.py` verify the *internal algorithmic and vector consistency* of `s2motion` under both hypotheses; they do *not* constitute independent experimental proof of the physical sign. Physical sign validation currently rests on contrail morphology and cruise speed plausibility, pending external ADS-B corroboration.
 
 > [!CAUTION]
 > **Flight Altitude Disclaimer**: Flight altitude $h$ is a user-specified parameter, not an independently measured observable. The sensitivity of ground speed to altitude is approximately $d v / d h \approx \frac{v_{\text{track}}}{H} \approx 8.5\text{ m/s per km} \approx 30.8\text{ km/h per 1,000 m}$ along track.
@@ -213,9 +218,14 @@ Rather than assuming a constant inertial orbital velocity ($v_{\text{orb}} \appr
 ## 8. Spatial Uncertainty Budget and Geolocation Precision
 
 Every position reported relative to runway infrastructure is qualified by an estimated spatial uncertainty of **$\pm 15\text{ m}$**. This budget is derived from published official specifications:
-1. **ESA Mission Requirements Document (MRD, S2-RS-ESA-SY-0001)**: Specifies an absolute geolocation uncertainty $< 20\text{ m}$ at a $2\sigma$ ($95.5\%$) confidence level without Ground Control Points.
-2. **Copernicus Sentinel-2 Data Quality Report (ESA-EOPG-EOQC-RP-0001)**: With the deployment of the Global Reference Image (GRI) across Processing Baseline 03.00+, geometric multi-temporal registration achieves a circular error $< 10\text{ m}$ at $95.5\%$ confidence.
+1. **Copernicus Sentinel-2 Mission Specification ([ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2))**: Specifies an absolute geolocation uncertainty requirement $< 20\text{ m}$ at a $2\sigma$ ($95.5\%$) confidence level without Ground Control Points on WGS84.
+2. **Geometric Refinement Performance ([Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports))**: Routine quality monitoring demonstrates that with the deployment of the Global Reference Image (GRI), multi-temporal registration achieves circular errors $< 5\text{ m}$ at $95\%$ confidence.
 3. **Sensor Discretization**: Ground Sampling Distance (GSD) of $10.0\text{ m}$ per pixel.
 4. **Pushbroom Dynamic Discretization**: Intraband along-track motion during the detector line integration time.
+*(TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001 once officially published).*
 
 Combining these independent error components in quadrature yields a root-sum-square spatial uncertainty on the ground of $\sigma_{\text{pos}} \approx \pm 15\text{ m}$.
+
+---
+
+*Contains modified Copernicus Sentinel data [2026]*

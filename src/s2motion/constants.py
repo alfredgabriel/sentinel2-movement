@@ -229,25 +229,29 @@ CITATIONS: Final[dict[str, dict[str, str]]] = {
         "url": "https://doi.org/10.3390/s19132873",
     },
     "heiselberg_2021": {
-        "authors": "Henning Heiselberg",
+        "authors": "Peder Heiselberg, Henning Heiselberg",
         "title": "Aircraft Detection above Clouds by Sentinel-2 MSI Parallax",
         "journal": "Remote Sensing",
         "volume": "13",
-        "number": "12",
-        "pages": "2327",
+        "number": "15",
+        "pages": "3016",
         "year": "2021",
-        "doi": "10.3390/rs13122327",
-        "url": "https://doi.org/10.3390/rs13122327",
+        "doi": "10.3390/rs13153016",
+        "url": "https://doi.org/10.3390/rs13153016",
     },
-    "esa_dqr_2023": {
+    "esa_sentinel2_spec": {
         "authors": "European Space Agency (ESA)",
-        "title": "Copernicus Sentinel-2 Data Quality Report",
-        "report_id": "ESA-EOPG-EOQC-RP-0001",
+        "title": "Copernicus Sentinel-2 Mission Specification and Data Quality",
+        "portal_url": "https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2",
+        "quality_reports_url": "https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports",
         "year": "2023",
         "note": (
-            "Specifies absolute geolocation accuracy: < 20 m (at 95.5% / 2-sigma confidence) "
-            "without Ground Control Points (GCPs), and < 10 m (at 95.5% confidence) with the "
-            "Global Reference Image (GRI)."
+            "Specifies absolute geolocation requirement < 20 m (at 2-sigma / 95% confidence level) "
+            "without GCPs on WGS84, and multi-temporal co-registration < 5 m with the Global Reference Image (GRI). "
+            "TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001."
         ),
     },
 }
+
+# Copernicus Sentinel-2 mandatory data attribution statement
+COPERNICUS_ATTRIBUTION: Final[str] = "Contains modified Copernicus Sentinel data [2026]"

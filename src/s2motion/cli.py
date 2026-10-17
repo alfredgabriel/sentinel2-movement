@@ -126,6 +126,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
     altitude_m: float | None = None
     altitude_min_m: float | None = None
     altitude_max_m: float | None = None
+    contrail_points: tuple[tuple[float, float], tuple[float, float]] | None = None
 
     if args.config:
         cfg = load_toml_config(Path(args.config))
@@ -168,7 +169,17 @@ def cmd_measure(args: argparse.Namespace) -> int:
         if "altitude_max_m" in parallax_cfg:
             altitude_max_m = float(parallax_cfg["altitude_max_m"])
 
+        contrail_cfg = cfg.get("contrail", {})
+        if "p_tail" in contrail_cfg and "p_head" in contrail_cfg:
+            contrail_points = (
+                (float(contrail_cfg["p_tail"][0]), float(contrail_cfg["p_tail"][1])),
+                (float(contrail_cfg["p_head"][0]), float(contrail_cfg["p_head"][1])),
+            )
+
     # 2. Apply CLI overrides
+    if getattr(args, "contrail_points", None) is not None:
+        y1, x1, y2, x2 = args.contrail_points
+        contrail_points = ((y1, x1), (y2, x2))
     if args.date:
         date_str = args.date
     if args.bbox:
@@ -242,6 +253,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         band_order=band_order,
         runway_heading_deg=runway_heading,
         runway_proximity=runway_prox,
+        contrail_points=contrail_points,
     )
 
     if altitude_m is not None:
@@ -385,6 +397,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar=("MIN_ALT", "MAX_ALT"),
         default=None,
         help="Altitude interval [MIN_ALT, MAX_ALT] in meters for parallax sensitivity bounds",
+    )
+    p_measure.add_argument(
+        "--contrail-points",
+        nargs=4,
+        type=float,
+        metavar=("Y_TAIL", "X_TAIL", "Y_HEAD", "X_HEAD"),
+        default=None,
+        help="Two points defining contrail axis (tail to head in row, col) for heading comparison",
     )
     p_measure.add_argument("--out", help="Path to save annotated output figure")
 

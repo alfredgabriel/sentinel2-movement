@@ -84,16 +84,16 @@ Because the aircraft is flying at cruise altitude, stereoscopic parallax is indu
 > [!CAUTION]
 > **Flight Altitude Disclaimer**: Flight altitude is a user-specified parameter, not an independently measured observable. Nominal cruise altitude is assumed at $h = 10.5\text{ km}$ ($34,450\text{ ft}$), with a plausible cruise altitude interval of $[9.0, 12.0]\text{ km}$ ($29,500 - 39,400\text{ ft}$).
 
-Comparing the two band order hypotheses (originally estimated in preliminary hand calculations as $\sim 850-920\text{ km/h}$ vs $>1400\text{ km/h}$, now rigorously reproduced and parameterized via `s2motion.parallax`):
+Comparing the two band order hypotheses using the complete pushbroom parallax model ($\vec{v}_{\text{true}} = (1 - h/H)\vec{v}_{\text{apparent}} + (h/H)\vec{v}_{\text{track}}$, which differs by $\approx 15\text{ km/h}$ from the simplified linear approximation):
 
 - **Under `red-first`**: The apparent displacement represents real aircraft displacement plus forward parallax, so the true horizontal aircraft velocity is *lower* than the raw apparent velocity:
-  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 947.3\text{ km/h}$** ($263.1\text{ m/s}$), true heading = **$316.6^\circ$** ($\Delta v = -204.0\text{ km/h}$).
-  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [923.8, 972.5]\text{ km/h}$** ($\approx 924 - 973\text{ km/h}$, Mach $0.85 - 0.89$ at cruise FL).
-  This falls within the high-speed cruise envelope of modern commercial jet airliners (e.g. A350, B787, B777, A330).
+  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 932.4\text{ km/h}$** ($259.0\text{ m/s}$), true heading = **$316.4^\circ$** ($\Delta v = -218.9\text{ km/h}$).
+  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [906.9, 959.6]\text{ km/h}$** ($\approx 907 - 960\text{ km/h}$).
+  This ground speed is compatible with commercial jet airliner cruise; wind at flight altitude is unknown.
 - **Under `blue-first`**: Reversing the time vector inverts the sign of the kinematic motion while parallax geometry remains tied to sensor motion, leading to a calculated aircraft speed:
-  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 1401.0\text{ km/h}$** ($389.1\text{ m/s}$), true heading = **$159.7^\circ$** ($\Delta v = +249.6\text{ km/h}$).
-  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [1363.4, 1439.0]\text{ km/h}$** ($\approx 1363 - 1439\text{ km/h}$, Mach $1.25 - 1.32$).
-  This corresponds to supersonic flight, which is physically implausible for civil commercial air transport.
+  - Nominal altitude ($h = 10.5\text{ km}$): **$v_{\text{true}} = 1385.8\text{ km/h}$** ($385.0\text{ m/s}$), true heading = **$159.8^\circ$** ($\Delta v = +234.4\text{ km/h}$).
+  - Cruise interval ($h \in [9.0, 12.0]\text{ km}$): **$v_{\text{true}} \in [1350.4, 1421.7]\text{ km/h}$** ($\approx 1350 - 1422\text{ km/h}$).
+  This corresponds to supersonic ground speed, which is physically implausible for civil commercial air transport.
 
 ---
 
