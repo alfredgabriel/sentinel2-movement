@@ -69,7 +69,9 @@ class ADSBValidationCriteria:
         1000.0  # Spatial tolerance evaluated at capture instant (1 km approach, 2 km cruise)
     )
     time_window_s: float = 60.0  # Search / extraction window: +/- 60 s around satellite overpass
-    max_time_offset_s: float = 20.0  # Acceptance criterion: |Δt_CPA| <= 20 s (tile scan duration ~15-20 s)
+    max_time_offset_s: float = (
+        20.0  # Acceptance criterion: |Δt_CPA| <= 20 s (tile scan duration ~15-20 s)
+    )
     heading_tolerance_deg: float = 14.0  # 2-sigma angular tolerance (2 * ~7.0 deg for Case 1)
     speed_tolerance_relative: float = 0.15  # +/- 15% tolerance if explicit interval not used
     terrain_elevation_m: float = 0.0  # Local terrain elevation to compute geometric height AGL
@@ -217,7 +219,11 @@ class ADSBValidationReport:
                     f"Geometric: {geom_str} (Diff: {diff_str}) | Height AGL: {agl_str}"
                 )
 
-        if self.red_first is not None and self.blue_first is not None and self.best_candidate is not None:
+        if (
+            self.red_first is not None
+            and self.blue_first is not None
+            and self.best_candidate is not None
+        ):
             lines.extend(
                 [
                     "------------------------------------------------------------",

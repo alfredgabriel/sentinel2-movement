@@ -519,4 +519,3 @@ def test_validate_adsb_terrain_elevation_subtraction() -> None:
     assert report.recalculated_parallax_speed_kmh is not None
     assert abs(report.recalculated_parallax_diff_kmh) < 10.0
     assert "Height AGL (Parallax): 10758 m" in report.summary()
-
