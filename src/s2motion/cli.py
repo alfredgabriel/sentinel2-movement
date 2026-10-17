@@ -347,6 +347,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
     heading_tol = getattr(args, "heading_tolerance", None)
     app_speed_mps = getattr(args, "apparent_speed_mps", None)
     app_hdg_deg = getattr(args, "apparent_heading", None)
+    terrain_elev = getattr(args, "terrain_elevation", None)
+    max_time_offset_s = getattr(args, "max_time_offset", None)
 
     # Load from config if available
     if args.config:
@@ -371,11 +373,15 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if time_window_s == 60.0:
             time_window_s = val_cfg.get("time_window_s", 60.0)
         if heading_tol is None:
-            heading_tol = val_cfg.get("heading_tolerance_deg", 14.0)
+            heading_tol = val_cfg.get("heading_tolerance_deg")
         if app_speed_mps is None:
             app_speed_mps = val_cfg.get("apparent_speed_mps")
         if app_hdg_deg is None:
             app_hdg_deg = val_cfg.get("apparent_heading_deg")
+        if terrain_elev is None:
+            terrain_elev = val_cfg.get("terrain_elevation_m", 0.0)
+        if max_time_offset_s is None:
+            max_time_offset_s = val_cfg.get("max_time_offset_s", 20.0)
 
     if target_lat is None or target_lon is None:
         logger.error(
@@ -399,12 +405,18 @@ def cmd_validate(args: argparse.Namespace) -> int:
         max_dist_m = 1000.0
     if heading_tol is None:
         heading_tol = 14.0
+    if terrain_elev is None:
+        terrain_elev = 0.0
+    if max_time_offset_s is None:
+        max_time_offset_s = 20.0
 
     sensing_ts = parse_timestamp(sensing_time)
     criteria = ADSBValidationCriteria(
         max_distance_m=float(max_dist_m),
         time_window_s=float(time_window_s),
+        max_time_offset_s=float(max_time_offset_s),
         heading_tolerance_deg=float(heading_tol),
+        terrain_elevation_m=float(terrain_elev),
     )
 
     fmt_hint = getattr(args, "format", "auto")
@@ -561,6 +573,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--heading-tolerance",
         type=float,
         help="Heading 2-sigma tolerance in degrees (default: 14.0 deg)",
+    )
+    p_val.add_argument(
+        "--max-time-offset",
+        type=float,
+        default=20.0,
+        help="Maximum CPA time offset in seconds for tile scan limit (default: 20.0 s)",
+    )
+    p_val.add_argument(
+        "--terrain-elevation",
+        type=float,
+        default=0.0,
+        help="Local terrain elevation in meters to compute geometric height AGL (default: 0.0 m)",
     )
 
     return parser

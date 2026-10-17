@@ -36,8 +36,10 @@ longitude = -2.911
 target_lat = 43.310770
 target_lon = -2.936874
 sensing_time = "2026-08-12T11:09:40Z"
-max_distance_m = 1000.0  # Terminal area / final approach
-time_window_s = 60.0
+max_distance_m = 1000.0  # Terminal area / final approach (evaluated at capture instant)
+time_window_s = 60.0  # Search / extraction window
+max_time_offset_s = 20.0  # Acceptance limit: |Δt_CPA| <= 20 s (tile scan duration ~15-20 s)
+terrain_elevation_m = 42.0  # Bilbao Airport elevation MSL
 heading_tolerance_deg = 14.0  # 2-sigma (~2 * 7.0 deg)
 heading_deg = 117.4
 speed_kmh = 295.0

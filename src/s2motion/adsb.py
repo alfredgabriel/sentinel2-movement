@@ -66,16 +66,18 @@ class ADSBValidationCriteria:
     """
 
     max_distance_m: float = (
-        1000.0  # Spatial tolerance (1 km for Case 1 approach, 2 km for Case 2 cruise)
+        1000.0  # Spatial tolerance evaluated at capture instant (1 km approach, 2 km cruise)
     )
-    time_window_s: float = 60.0  # Temporal matching window: +/- 60 s around satellite overpass
+    time_window_s: float = 60.0  # Search / extraction window: +/- 60 s around satellite overpass
+    max_time_offset_s: float = 20.0  # Acceptance criterion: |Δt_CPA| <= 20 s (tile scan duration ~15-20 s)
     heading_tolerance_deg: float = 14.0  # 2-sigma angular tolerance (2 * ~7.0 deg for Case 1)
     speed_tolerance_relative: float = 0.15  # +/- 15% tolerance if explicit interval not used
+    terrain_elevation_m: float = 0.0  # Local terrain elevation to compute geometric height AGL
 
 
 @dataclass(frozen=True)
 class ADSBInterpolatedState:
-    """Interpolated state vector at the Closest Point of Approach (CPA)."""
+    """Interpolated state vector at the Closest Point of Approach (CPA) and capture instant."""
 
     icao24: str
     callsign: str | None
@@ -83,15 +85,21 @@ class ADSBInterpolatedState:
     cpa_datetime_iso: str
     cpa_latitude: float
     cpa_longitude: float
-    distance_to_target_m: float
+    distance_to_target_m: float  # CPA distance to target
     time_offset_s: (
         float  # cpa_timestamp - sensing_timestamp (positive = CPA after satellite sensing)
     )
+    distance_at_sensing_m: float  # Distance evaluated at the exact capture instant (t_sensing)
+    sensing_latitude: float | None
+    sensing_longitude: float | None
+    cpa_time_valid: bool  # |time_offset_s| <= max_time_offset_s (tile scan duration)
+    distance_valid: bool  # distance_at_sensing_m <= max_distance_m
     heading_deg: float
     ground_speed_mps: float
     ground_speed_kmh: float
     altitude_baro_m: float | None
     altitude_geom_m: float | None
+    altitude_agl_m: float | None  # Geometric (or barometric) altitude minus terrain elevation
     baro_geom_diff_m: float | None
 
 
@@ -125,11 +133,13 @@ class ADSBValidationReport:
     criteria: ADSBValidationCriteria
     status: MatchStatus
     best_candidate: ADSBInterpolatedState | None
+    all_candidates: list[ADSBInterpolatedState]
     red_first: HypothesisComparison | None
     blue_first: HypothesisComparison | None
     recalculated_parallax_speed_kmh: float | None
     recalculated_parallax_diff_kmh: float | None
     recalculated_parallax_heading_deg: float | None
+    recalculated_parallax_altitude_agl_m: float | None
     message: str
 
     def summary(self) -> str:
@@ -141,13 +151,41 @@ class ADSBValidationReport:
             f"Target Position:         lat {self.target_lat:.6f}°, lon {self.target_lon:.6f}°",
             f"Sensing Time:            {self.sensing_datetime_iso} (epoch {self.sensing_timestamp:.1f} s)",
             "A Priori Criteria:",
-            f"  - Max Distance:        {self.criteria.max_distance_m:.0f} m",
-            f"  - Time Window:         ±{self.criteria.time_window_s:.0f} s",
-            f"  - Heading 2-sigma:     ±{self.criteria.heading_tolerance_deg:.1f}°",
+            f"  - Max Capture Distance: {self.criteria.max_distance_m:.0f} m (evaluated at t_sensing)",
+            f"  - Max CPA Time Offset:  ±{self.criteria.max_time_offset_s:.1f} s (tile scan duration limit)",
+            f"  - Search Window:        ±{self.criteria.time_window_s:.0f} s",
+            f"  - Heading 2-sigma:      ±{self.criteria.heading_tolerance_deg:.1f}°",
+            f"  - Terrain Elevation:    {self.criteria.terrain_elevation_m:.0f} m",
             "------------------------------------------------------------",
             f"Validation Outcome:      {self.status.value}",
             f"Diagnostics:             {self.message}",
         ]
+
+        lines.append("------------------------------------------------------------")
+        lines.append(
+            f"Evaluated Aircraft Candidates in Search Window (±{self.criteria.time_window_s:.0f} s):"
+        )
+        if not self.all_candidates:
+            lines.append("  (No aircraft detected in search window)")
+        else:
+            for idx, cand in enumerate(self.all_candidates, 1):
+                cs = cand.callsign or "N/A"
+                t_str = (
+                    "PASS"
+                    if cand.cpa_time_valid
+                    else f"FAIL (|Δt|={abs(cand.time_offset_s):.1f}s > {self.criteria.max_time_offset_s:.0f}s)"
+                )
+                d_str = (
+                    "PASS"
+                    if cand.distance_valid
+                    else f"FAIL (d={cand.distance_at_sensing_m:.0f}m > {self.criteria.max_distance_m:.0f}m)"
+                )
+                lines.append(
+                    f"  [{idx}] {cs} (ICAO24: {cand.icao24}): "
+                    f"d(t_sensing)={cand.distance_at_sensing_m:.1f} m [{d_str}] | "
+                    f"CPA={cand.distance_to_target_m:.1f} m (Δt={cand.time_offset_s:+.2f} s) [{t_str}] | "
+                    f"Track={cand.heading_deg:.1f}° | GS={cand.ground_speed_kmh:.0f} km/h"
+                )
 
         if self.best_candidate is not None:
             c = self.best_candidate
@@ -156,23 +194,30 @@ class ADSBValidationReport:
                 [
                     "------------------------------------------------------------",
                     f"Matched Aircraft:        {cs} (ICAO24: {c.icao24})",
+                    f"Capture Instant Dist:    {c.distance_at_sensing_m:.1f} m (at t_sensing)",
                     f"CPA Timestamp:           {c.cpa_datetime_iso} (offset: {c.time_offset_s:+.2f} s)",
                     f"CPA Distance:            {c.distance_to_target_m:.1f} m",
                     f"ADS-B Ground Speed:      {c.ground_speed_kmh:.1f} km/h [{c.ground_speed_mps:.1f} m/s]",
                     f"ADS-B Track Heading:     {c.heading_deg:.1f}°",
                 ]
             )
-            if c.altitude_baro_m is not None:
+            if c.altitude_baro_m is not None or c.altitude_geom_m is not None:
+                baro_str = (
+                    f"{c.altitude_baro_m:.0f} m ({c.altitude_baro_m / FEET_TO_METERS:.0f} ft)"
+                    if c.altitude_baro_m is not None
+                    else "N/A"
+                )
                 geom_str = f"{c.altitude_geom_m:.0f} m" if c.altitude_geom_m is not None else "N/A"
+                agl_str = f"{c.altitude_agl_m:.0f} m" if c.altitude_agl_m is not None else "N/A"
                 diff_str = (
                     f"{c.baro_geom_diff_m:+.0f} m" if c.baro_geom_diff_m is not None else "N/A"
                 )
                 lines.append(
-                    f"Altitude:                Barometric: {c.altitude_baro_m:.0f} m ({c.altitude_baro_m / FEET_TO_METERS:.0f} ft) | "
-                    f"Geometric: {geom_str} | Diff: {diff_str}"
+                    f"Altitude:                Barometric: {baro_str} | "
+                    f"Geometric: {geom_str} (Diff: {diff_str}) | Height AGL: {agl_str}"
                 )
 
-        if self.red_first is not None and self.blue_first is not None:
+        if self.red_first is not None and self.blue_first is not None and self.best_candidate is not None:
             lines.extend(
                 [
                     "------------------------------------------------------------",
@@ -189,10 +234,16 @@ class ADSBValidationReport:
             )
 
         if self.recalculated_parallax_speed_kmh is not None and self.best_candidate is not None:
+            c = self.best_candidate
+            raw_alt = c.altitude_geom_m or c.altitude_baro_m or 0.0
+            agl_alt = self.recalculated_parallax_altitude_agl_m or raw_alt
             lines.extend(
                 [
                     "------------------------------------------------------------",
-                    "Parallax Recalculation with Real ADS-B Altitude:",
+                    "Parallax Recalculation with Real ADS-B Altitude over Terrain (AGL):",
+                    f"  - Raw ADS-B Altitude:   {raw_alt:.0f} m ({'Geometric GNSS' if c.altitude_geom_m else 'Barometric'})",
+                    f"  - Terrain Elevation:    {self.criteria.terrain_elevation_m:.0f} m",
+                    f"  - Height AGL (Parallax): {agl_alt:.0f} m",
                     f"  - Recalculated Speed:   {self.recalculated_parallax_speed_kmh:.1f} km/h (heading: {self.recalculated_parallax_heading_deg:.1f}°)",
                     f"  - ADS-B Ground Speed:   {self.best_candidate.ground_speed_kmh:.1f} km/h",
                     f"  - Residual Speed Diff:  {self.recalculated_parallax_diff_kmh:+.1f} km/h",
@@ -461,14 +512,58 @@ def load_adsb_records(filepath: Path, format_hint: str = "auto") -> list[ADSBSta
             return parse_opensky_csv(p)
 
 
+def interpolate_position_at_time(
+    pts: list[ADSBStateVector],
+    target_time: float,
+) -> tuple[float, float] | None:
+    """Linearly interpolate latitude and longitude at target_time."""
+    if not pts:
+        return None
+    if len(pts) == 1:
+        return pts[0].latitude, pts[0].longitude
+
+    if pts[0].timestamp <= target_time <= pts[-1].timestamp:
+        for k in range(len(pts) - 1):
+            if pts[k].timestamp <= target_time <= pts[k + 1].timestamp:
+                dt = pts[k + 1].timestamp - pts[k].timestamp
+                if dt <= 0:
+                    return pts[k].latitude, pts[k].longitude
+                beta = (target_time - pts[k].timestamp) / dt
+                lat = pts[k].latitude + beta * (pts[k + 1].latitude - pts[k].latitude)
+                lon = pts[k].longitude + beta * (pts[k + 1].longitude - pts[k].longitude)
+                return lat, lon
+    elif target_time < pts[0].timestamp:
+        p0, p1 = pts[0], pts[1]
+        dt = p1.timestamp - p0.timestamp
+        if dt > 0:
+            beta = (target_time - p0.timestamp) / dt
+            return p0.latitude + beta * (p1.latitude - p0.latitude), p0.longitude + beta * (
+                p1.longitude - p0.longitude
+            )
+        return p0.latitude, p0.longitude
+    else:
+        p0, p1 = pts[-2], pts[-1]
+        dt = p1.timestamp - p0.timestamp
+        if dt > 0:
+            beta = (target_time - p0.timestamp) / dt
+            return p0.latitude + beta * (p1.latitude - p0.latitude), p0.longitude + beta * (
+                p1.longitude - p0.longitude
+            )
+        return p1.latitude, p1.longitude
+    return None
+
+
 def interpolate_track_cpa(
     aircraft_vectors: list[ADSBStateVector],
     target_lat: float,
     target_lon: float,
     sensing_timestamp: float,
     time_window_s: float = 60.0,
+    terrain_elevation_m: float = 0.0,
+    max_time_offset_s: float = 20.0,
+    max_distance_m: float = 1000.0,
 ) -> ADSBInterpolatedState | None:
-    """Find the Closest Point of Approach (CPA) by interpolating trajectory segments."""
+    """Find the Closest Point of Approach (CPA) and evaluate capture instant kinematics."""
     # 1. Filter points within temporal window
     window_pts = [
         v for v in aircraft_vectors if abs(v.timestamp - sensing_timestamp) <= time_window_s
@@ -503,6 +598,9 @@ def interpolate_track_cpa(
             if (pt.altitude_geom_m is not None and pt.altitude_baro_m is not None)
             else None
         )
+        raw_alt = pt.altitude_geom_m if pt.altitude_geom_m is not None else pt.altitude_baro_m
+        alt_agl = max(0.0, raw_alt - terrain_elevation_m) if raw_alt is not None else None
+        time_off = pt.timestamp - sensing_timestamp
         return ADSBInterpolatedState(
             icao24=pt.icao24,
             callsign=pt.callsign,
@@ -511,12 +609,18 @@ def interpolate_track_cpa(
             cpa_latitude=pt.latitude,
             cpa_longitude=pt.longitude,
             distance_to_target_m=d,
-            time_offset_s=pt.timestamp - sensing_timestamp,
+            time_offset_s=time_off,
+            distance_at_sensing_m=d,
+            sensing_latitude=pt.latitude,
+            sensing_longitude=pt.longitude,
+            cpa_time_valid=abs(time_off) <= max_time_offset_s,
+            distance_valid=d <= max_distance_m,
             heading_deg=pt.heading_deg or 0.0,
             ground_speed_mps=pt.ground_speed_mps or 0.0,
             ground_speed_kmh=(pt.ground_speed_mps or 0.0) * MPS_TO_KMH,
             altitude_baro_m=pt.altitude_baro_m,
             altitude_geom_m=pt.altitude_geom_m,
+            altitude_agl_m=alt_agl,
             baro_geom_diff_m=baro_diff,
         )
 
@@ -537,12 +641,9 @@ def interpolate_track_cpa(
         if seg_len_sq < 1e-6:
             alpha = 0.0
         else:
-            # Projection of origin (0, 0) onto segment p(alpha) = p0 + alpha * (p1 - p0)
-            # Minimize (x0 + alpha*dx)^2 + (y0 + alpha*dy)^2
             alpha = -(x0 * dx + y0 * dy) / seg_len_sq
             alpha = max(0.0, min(1.0, alpha))
 
-        # Coordinates at alpha
         xi = x0 + alpha * dx
         yi = y0 + alpha * dy
         dist = math.hypot(xi, yi)
@@ -588,9 +689,25 @@ def interpolate_track_cpa(
         cpa_geom = p0.altitude_geom_m
 
     baro_diff = (cpa_geom - cpa_baro) if (cpa_geom is not None and cpa_baro is not None) else None
-
-    # Refine exact geodesic distance
     exact_dist_m = calculate_haversine_distance_m(target_lat, target_lon, best_lat, best_lon)
+
+    # Interpolate exact position at capture sensing instant
+    pos_sens = interpolate_position_at_time(window_pts, sensing_timestamp)
+    if pos_sens is not None:
+        sens_lat, sens_lon = pos_sens
+        dist_at_sensing_m = calculate_haversine_distance_m(
+            target_lat, target_lon, sens_lat, sens_lon
+        )
+    else:
+        sens_lat, sens_lon = best_lat, best_lon
+        dist_at_sensing_m = exact_dist_m
+
+    time_off = best_time - sensing_timestamp
+    cpa_valid = abs(time_off) <= max_time_offset_s
+    dist_valid = dist_at_sensing_m <= max_distance_m
+
+    raw_alt = cpa_geom if cpa_geom is not None else cpa_baro
+    alt_agl = max(0.0, raw_alt - terrain_elevation_m) if raw_alt is not None else None
 
     return ADSBInterpolatedState(
         icao24=p0.icao24,
@@ -600,14 +717,63 @@ def interpolate_track_cpa(
         cpa_latitude=best_lat,
         cpa_longitude=best_lon,
         distance_to_target_m=exact_dist_m,
-        time_offset_s=best_time - sensing_timestamp,
+        time_offset_s=time_off,
+        distance_at_sensing_m=dist_at_sensing_m,
+        sensing_latitude=sens_lat,
+        sensing_longitude=sens_lon,
+        cpa_time_valid=cpa_valid,
+        distance_valid=dist_valid,
         heading_deg=cpa_heading,
         ground_speed_mps=cpa_speed_mps,
         ground_speed_kmh=cpa_speed_mps * MPS_TO_KMH,
         altitude_baro_m=cpa_baro,
         altitude_geom_m=cpa_geom,
+        altitude_agl_m=alt_agl,
         baro_geom_diff_m=baro_diff,
     )
+
+
+def compute_combined_heading_tolerance(
+    apparent_heading_deg: float,
+    apparent_speed_mps: float,
+    altitude_min_m: float,
+    altitude_max_m: float,
+    apparent_heading_sigma_deg: float = 1.8,
+    delta_t_s: float = 1.005,
+    band_order: str = "red-first",
+) -> tuple[float, float, float]:
+    """Compute combined 2-sigma heading tolerance accounting for altitude interval uncertainty.
+
+    Combines the apparent heading measurement uncertainty (sigma_app) in quadrature with
+    the heading variation across the altitude search interval [altitude_min_m, altitude_max_m]:
+        sigma_alt = |heading(alt_max) - heading(alt_min)| / 2
+        sigma_comb = sqrt(sigma_app^2 + sigma_alt^2)
+        tolerance_2sigma = 2 * sigma_comb
+
+    Returns:
+        (tolerance_2sigma_deg, sigma_comb_deg, sigma_alt_deg)
+    """
+    px_min = correct_parallax(
+        apparent_speed_mps=apparent_speed_mps,
+        apparent_heading_deg=apparent_heading_deg,
+        altitude_m=altitude_min_m,
+        band_order=band_order,
+        delta_t_s=delta_t_s,
+    )
+    px_max = correct_parallax(
+        apparent_speed_mps=apparent_speed_mps,
+        apparent_heading_deg=apparent_heading_deg,
+        altitude_m=altitude_max_m,
+        band_order=band_order,
+        delta_t_s=delta_t_s,
+    )
+    delta_psi_alt = abs(
+        ((px_max.corrected_heading_deg - px_min.corrected_heading_deg + 180.0) % 360.0) - 180.0
+    )
+    sigma_alt = delta_psi_alt / 2.0
+    sigma_comb = math.hypot(apparent_heading_sigma_deg, sigma_alt)
+    tolerance_2sigma = 2.0 * sigma_comb
+    return tolerance_2sigma, sigma_comb, sigma_alt
 
 
 def validate_adsb(
@@ -648,20 +814,41 @@ def validate_adsb(
     for v in vectors:
         aircraft_groups.setdefault(v.icao24, []).append(v)
 
-    # Find CPA for each aircraft
-    candidates: list[ADSBInterpolatedState] = []
+    # Evaluate each candidate aircraft within the search window
+    all_candidates: list[ADSBInterpolatedState] = []
     for group in aircraft_groups.values():
-        cpa = interpolate_track_cpa(
+        cand = interpolate_track_cpa(
             group,
             target_lat=target_lat,
             target_lon=target_lon,
             sensing_timestamp=sensing_timestamp,
             time_window_s=criteria.time_window_s,
+            terrain_elevation_m=criteria.terrain_elevation_m,
+            max_time_offset_s=criteria.max_time_offset_s,
+            max_distance_m=criteria.max_distance_m,
         )
-        if cpa is not None and cpa.distance_to_target_m <= criteria.max_distance_m:
-            candidates.append(cpa)
+        if cand is not None:
+            all_candidates.append(cand)
 
-    if not candidates:
+    # Sort all candidates by distance at capture instant
+    all_candidates.sort(key=lambda c: c.distance_at_sensing_m)
+
+    # Filter candidates meeting strict temporal scan limit and capture distance
+    valid_candidates = [c for c in all_candidates if c.distance_valid and c.cpa_time_valid]
+
+    if not valid_candidates:
+        if not all_candidates:
+            msg = (
+                f"No aircraft found within max distance {criteria.max_distance_m:.0f} m "
+                f"and time window ±{criteria.time_window_s:.0f} s. Aircraft transponder may be "
+                f"off, not ADS-B Out equipped, or outside receiver station coverage."
+            )
+        else:
+            msg = (
+                f"No aircraft found that met both the temporal scan limit (|Δt_CPA| <= {criteria.max_time_offset_s:.1f} s) "
+                f"and capture distance limit (d(t_sensing) <= {criteria.max_distance_m:.0f} m) "
+                f"within search window ±{criteria.time_window_s:.0f} s."
+            )
         return ADSBValidationReport(
             target_lat=target_lat,
             target_lon=target_lon,
@@ -670,27 +857,24 @@ def validate_adsb(
             criteria=criteria,
             status=MatchStatus.NO_DATA_OR_NO_MATCH,
             best_candidate=None,
+            all_candidates=all_candidates,
             red_first=None,
             blue_first=None,
             recalculated_parallax_speed_kmh=None,
             recalculated_parallax_diff_kmh=None,
             recalculated_parallax_heading_deg=None,
-            message=(
-                f"No aircraft found within max distance {criteria.max_distance_m:.0f} m "
-                f"and time window ±{criteria.time_window_s:.0f} s. Aircraft transponder may be "
-                f"off, not ADS-B Out equipped, or outside receiver station coverage."
-            ),
+            recalculated_parallax_altitude_agl_m=None,
+            message=msg,
         )
 
-    # Best match is the one with minimum distance to target
-    candidates.sort(key=lambda c: c.distance_to_target_m)
-    best = candidates[0]
+    # Primary matched candidate is the one closest at capture instant
+    best = valid_candidates[0]
 
     # Evaluate red-first
     diff_h_red = ((measured_heading_red_first - best.heading_deg + 180.0) % 360.0) - 180.0
     h_compat_red = abs(diff_h_red) <= criteria.heading_tolerance_deg
     s_compat_red = speed_min_kmh_red_first <= best.ground_speed_kmh <= speed_max_kmh_red_first
-    d_compat = best.distance_to_target_m <= criteria.max_distance_m
+    d_compat = best.distance_valid and best.cpa_time_valid
     overall_red = h_compat_red and s_compat_red and d_compat
 
     red_comp = HypothesisComparison(
@@ -704,7 +888,7 @@ def validate_adsb(
         adsb_speed_kmh=best.ground_speed_kmh,
         speed_diff_kmh=speed_kmh_red_first - best.ground_speed_kmh,
         speed_compatible=s_compat_red,
-        distance_m=best.distance_to_target_m,
+        distance_m=best.distance_at_sensing_m,
         distance_compatible=d_compat,
         overall_compatible=overall_red,
     )
@@ -726,7 +910,7 @@ def validate_adsb(
         adsb_speed_kmh=best.ground_speed_kmh,
         speed_diff_kmh=speed_kmh_blue_first - best.ground_speed_kmh,
         speed_compatible=s_compat_blue,
-        distance_m=best.distance_to_target_m,
+        distance_m=best.distance_at_sensing_m,
         distance_compatible=d_compat,
         overall_compatible=overall_blue,
     )
@@ -744,21 +928,21 @@ def validate_adsb(
     else:
         status = MatchStatus.INCOMPATIBLE_NEITHER
         msg = (
-            f"Nearest aircraft {best.callsign or best.icao24} at {best.distance_to_target_m:.0f} m "
+            f"Candidate aircraft {best.callsign or best.icao24} at {best.distance_at_sensing_m:.0f} m "
             f"is incompatible with both hypotheses (heading or speed out of bounds)."
         )
 
-    # Recalculate parallax if high altitude target and apparent parameters provided
+    # Recalculate parallax using true geometric altitude above terrain (AGL)
     recalc_speed = None
     recalc_diff = None
     recalc_hdg = None
+    recalc_agl = best.altitude_agl_m
     if apparent_speed_mps is not None and apparent_heading_deg is not None:
-        real_alt_m = best.altitude_geom_m or best.altitude_baro_m
-        if real_alt_m is not None and real_alt_m > 1000.0:
+        if recalc_agl is not None and recalc_agl > 1000.0:
             px = correct_parallax(
                 apparent_speed_mps=apparent_speed_mps,
                 apparent_heading_deg=apparent_heading_deg,
-                altitude_m=real_alt_m,
+                altitude_m=recalc_agl,
                 band_order="red-first",
                 delta_t_s=delta_t_s,
             )
@@ -774,10 +958,12 @@ def validate_adsb(
         criteria=criteria,
         status=status,
         best_candidate=best,
+        all_candidates=all_candidates,
         red_first=red_comp,
         blue_first=blue_comp,
         recalculated_parallax_speed_kmh=recalc_speed,
         recalculated_parallax_diff_kmh=recalc_diff,
         recalculated_parallax_heading_deg=recalc_hdg,
+        recalculated_parallax_altitude_agl_m=recalc_agl,
         message=msg,
     )

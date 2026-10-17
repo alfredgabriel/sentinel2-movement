@@ -10,6 +10,7 @@ from s2motion.adsb import (
     ADSBValidationCriteria,
     MatchStatus,
     calculate_haversine_distance_m,
+    compute_combined_heading_tolerance,
     interpolate_track_cpa,
     parse_adsbx_json,
     parse_opensky_csv,
@@ -243,7 +244,7 @@ def test_validate_adsb_case2_with_real_altitude_recalculation() -> None:
     # Recalculated with real altitude 10,800 m should be close to 930 km/h
     assert abs(report.recalculated_parallax_speed_kmh - 930.0) < 15.0
     assert abs(report.recalculated_parallax_diff_kmh) < 15.0
-    assert "Parallax Recalculation with Real ADS-B Altitude:" in report.summary()
+    assert "Parallax Recalculation with Real ADS-B Altitude over Terrain (AGL):" in report.summary()
 
 
 def test_validate_adsb_no_match_informative_out_of_window() -> None:
@@ -361,3 +362,161 @@ def test_cli_validate_with_config(tmp_path: Path, capsys: pytest.CaptureFixture[
     captured = capsys.readouterr()
     assert "Sentinel-2 Moving Object ADS-B Validation Report" in captured.out
     assert "COMPATIBLE_RED_FIRST" in captured.out
+
+
+def test_validate_adsb_scan_time_offset_rejection() -> None:
+    """Verify aircraft passing target at CPA within distance but outside 20s tile scan limit is rejected."""
+    t_sensing = 1000.0
+    # Aircraft CPA occurs at t=1035 s (|Δt| = 35 s > 20 s tile scan limit)
+    v1 = ADSBStateVector(
+        timestamp=1030.0,
+        icao24="late01",
+        callsign="LATE01",
+        latitude=43.311,
+        longitude=-2.937,
+        altitude_baro_m=150.0,
+        altitude_geom_m=155.0,
+        ground_speed_mps=82.0,
+        heading_deg=117.4,
+    )
+    v2 = ADSBStateVector(
+        timestamp=1040.0,
+        icao24="late01",
+        callsign="LATE01",
+        latitude=43.310,
+        longitude=-2.936,
+        altitude_baro_m=150.0,
+        altitude_geom_m=155.0,
+        ground_speed_mps=82.0,
+        heading_deg=117.4,
+    )
+    criteria = ADSBValidationCriteria(
+        max_distance_m=1000.0,
+        time_window_s=60.0,
+        max_time_offset_s=20.0,
+        heading_tolerance_deg=14.0,
+    )
+    report = validate_adsb(
+        vectors=[v1, v2],
+        target_lat=43.3105,
+        target_lon=-2.9365,
+        sensing_timestamp=t_sensing,
+        measured_heading_red_first=117.4,
+        speed_kmh_red_first=295.0,
+        speed_min_kmh_red_first=254.0,
+        speed_max_kmh_red_first=338.0,
+        criteria=criteria,
+    )
+    # Must reject because |Δt_CPA| > 20 s
+    assert report.status == MatchStatus.NO_DATA_OR_NO_MATCH
+    assert len(report.all_candidates) == 1
+    assert report.all_candidates[0].cpa_time_valid is False
+    assert abs(report.all_candidates[0].time_offset_s) > 20.0
+
+
+def test_validate_adsb_all_candidates_listing() -> None:
+    """Verify all candidate aircraft in search window are documented without cherry-picking."""
+    t_sensing = 1000.0
+    v_near = ADSBStateVector(
+        timestamp=1000.0,
+        icao24="near01",
+        callsign="NEAR01",
+        latitude=43.31077,
+        longitude=-2.93687,
+        altitude_baro_m=150.0,
+        altitude_geom_m=155.0,
+        ground_speed_mps=82.0,
+        heading_deg=117.4,
+    )
+    v_far = ADSBStateVector(
+        timestamp=1000.0,
+        icao24="far002",
+        callsign="FAR002",
+        latitude=43.350,
+        longitude=-2.900,
+        altitude_baro_m=3000.0,
+        altitude_geom_m=3050.0,
+        ground_speed_mps=120.0,
+        heading_deg=220.0,
+    )
+    criteria = ADSBValidationCriteria(
+        max_distance_m=1000.0,
+        time_window_s=60.0,
+        max_time_offset_s=20.0,
+        heading_tolerance_deg=14.0,
+    )
+    report = validate_adsb(
+        vectors=[v_near, v_far],
+        target_lat=43.31077,
+        target_lon=-2.93687,
+        sensing_timestamp=t_sensing,
+        measured_heading_red_first=117.4,
+        speed_kmh_red_first=295.0,
+        speed_min_kmh_red_first=254.0,
+        speed_max_kmh_red_first=338.0,
+        criteria=criteria,
+    )
+    assert report.status == MatchStatus.COMPATIBLE_RED_FIRST
+    assert len(report.all_candidates) == 2
+    summary = report.summary()
+    assert "NEAR01" in summary
+    assert "FAR002" in summary
+    assert "Evaluated Aircraft Candidates in Search Window" in summary
+
+
+def test_compute_combined_heading_tolerance() -> None:
+    """Verify combining apparent heading sigma with altitude interval sensitivity."""
+    tol_2sig, sig_comb, sig_alt = compute_combined_heading_tolerance(
+        apparent_heading_deg=330.41,
+        apparent_speed_mps=319.81,
+        altitude_min_m=9000.0,
+        altitude_max_m=12000.0,
+        apparent_heading_sigma_deg=1.8,
+        delta_t_s=1.005,
+        band_order="red-first",
+    )
+    # sig_alt is ~2.45 deg, sig_comb is ~3.04 deg, 2-sigma is ~6.08 deg
+    assert 2.3 < sig_alt < 2.6
+    assert 2.9 < sig_comb < 3.2
+    assert 5.9 < tol_2sig < 6.3
+
+
+def test_validate_adsb_terrain_elevation_subtraction() -> None:
+    """Verify geometric altitude minus terrain elevation gives true height AGL for parallax."""
+    t_sensing = 1000.0
+    v = ADSBStateVector(
+        timestamp=t_sensing,
+        icao24="high01",
+        callsign="CRUISE1",
+        latitude=43.302306,
+        longitude=-2.918740,
+        altitude_baro_m=10600.0,
+        altitude_geom_m=10800.0,
+        ground_speed_mps=259.0,  # ~932.4 km/h
+        heading_deg=334.6,
+    )
+    criteria = ADSBValidationCriteria(
+        max_distance_m=2000.0,
+        time_window_s=60.0,
+        max_time_offset_s=20.0,
+        heading_tolerance_deg=5.0,
+        terrain_elevation_m=42.0,
+    )
+    report = validate_adsb(
+        vectors=[v],
+        target_lat=43.302306,
+        target_lon=-2.918740,
+        sensing_timestamp=t_sensing,
+        measured_heading_red_first=334.6,
+        speed_kmh_red_first=932.0,
+        speed_min_kmh_red_first=900.0,
+        speed_max_kmh_red_first=960.0,
+        criteria=criteria,
+        apparent_speed_mps=319.81,
+        apparent_heading_deg=330.41,
+    )
+    assert report.recalculated_parallax_altitude_agl_m == 10800.0 - 42.0  # 10758 m
+    assert report.recalculated_parallax_speed_kmh is not None
+    assert abs(report.recalculated_parallax_diff_kmh) < 10.0
+    assert "Height AGL (Parallax): 10758 m" in report.summary()
+

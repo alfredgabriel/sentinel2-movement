@@ -12,20 +12,27 @@ To preserve scientific integrity and prevent confirmation bias, all validation c
 
 | Parameter | Case 1: Approach / Terminal Area | Case 2: En-Route Cruising Flight | Mathematical Formulation |
 | :--- | :--- | :--- | :--- |
-| **Max CPA Distance ($d_{\max}$)** | **$1000\text{ m}$** ($1.0\text{ km}$) | **$2000\text{ m}$** ($2.0\text{ km}$) | $d_{\text{CPA}} \le d_{\max}$ |
-| **Temporal Matching Window** | **$\pm 60.0\text{ s}$** around sensing time | **$\pm 60.0\text{ s}$** around sensing time | $|t_{\text{CPA}} - t_{\text{sensing}}| \le 60\text{ s}$ |
-| **Heading Concordance** | **$2\sigma \approx \pm 14.0^\circ$** ($\sigma \approx 7.0^\circ$) | **$2\sigma \approx \pm 3.6^\circ$** ($\sigma \approx 1.8^\circ$) | $\|\Delta \psi\| \le 2 \sigma_{\psi}$ |
+| **Max Capture Distance ($d_{\max}$)** | **$1000\text{ m}$** ($1.0\text{ km}$) | **$2000\text{ m}$** ($2.0\text{ km}$) | $d(t_{\text{sensing}}) \le d_{\max}$ (at capture instant) |
+| **CPA Time Offset Limit** | **$|\Delta t_{\text{CPA}}| \le 20.0\text{ s}$** | **$|\Delta t_{\text{CPA}}| \le 20.0\text{ s}$** | Tile scan duration limit ($\sim 15 - 20\text{ s}$) |
+| **Candidate Search Window** | **$\pm 60.0\text{ s}$** around sensing time | **$\pm 60.0\text{ s}$** around sensing time | Extraction window only ($|t - t_{\text{sensing}}| \le 60\text{ s}$) |
+| **Heading Concordance ($2\sigma$)** | **$\pm 14.0^\circ$** ($\sigma \approx 7.0^\circ$) | **$\pm 6.1^\circ$** (combined $\sigma \approx 3.04^\circ$) | $\|\Delta \psi\| \le 2 \sigma_{\text{comb}}$ |
 | **Ground Speed Concordance** | Within interval **$[254, 338]\text{ km/h}$** | Within interval **$[907, 960]\text{ km/h}$** | $v_{\text{adsb}} \in [v_{\min}, v_{\max}]$ |
 
 > [!IMPORTANT]
-> **No Post-Hoc Adjustment Rule**:
-> If an aircraft candidate falls outside these established bounds, it is classified as incompatible or unmatched. Thresholds are never expanded retroactively to force a match.
+> **Capture Instant Evaluation Rule**:
+> Acceptance is evaluated at the aircraft's interpolated position at the **exact instant of satellite sensing ($t_{\text{sensing}}$)**, demanding $|\Delta t_{\text{CPA}}| \le 20\text{ s}$ (corresponding to the $\sim 15 - 20\text{ s}$ physical sweep duration of a Sentinel-2 MSI tile). The $\pm 60\text{ s}$ window serves exclusively as a broad retrieval and search window. If an aircraft passes close to the target coordinates but at a time offset $|\Delta t_{\text{CPA}}| > 20\text{ s}$, it was not physically present during tile acquisition and is rejected.
+
+> [!IMPORTANT]
+> **No Cherry-Picking Rule (All Candidates Listed)**:
+> If multiple aircraft are present within the $\pm 60\text{ s}$ search window, `s2motion validate` lists **every single candidate** in an explicit table reporting distance at capture $d(t_{\text{sensing}})$, CPA distance, $\Delta t$, heading, speed, and individual compatibility status. No candidate is selected or suppressed arbitrarily.
 
 ---
 
-## 2. Trajectory Interpolation and Closest Point of Approach (CPA)
+## 2. Trajectory Interpolation and Capture Instant Kinematics
 
-ADS-B transponders broadcast discrete position messages (typically spaced by $0.5 - 5\text{ s}$). Because the satellite overpass occurs at an exact physical instant ($t_{\text{sensing}}$), `s2motion` reconstructs the continuous aircraft flight trajectory to find the exact **Closest Point of Approach (CPA)** to the georeferenced satellite centroid $(lat_{\text{target}}, lon_{\text{target}})$.
+ADS-B transponders broadcast discrete position messages (typically spaced by $0.5 - 5\text{ s}$). Because the satellite overpass occurs at an exact physical instant ($t_{\text{sensing}}$), `s2motion` reconstructs the continuous aircraft flight trajectory to evaluate:
+1. The **exact interpolated position at the sensing instant** $(lat(t_{\text{sensing}}), lon(t_{\text{sensing}}))$ and distance $d(t_{\text{sensing}})$ to the satellite target centroid.
+2. The **Closest Point of Approach (CPA)** along the continuous track, obtaining $t_{\text{CPA}}$, $d_{\text{CPA}}$, and the time offset $\Delta t_{\text{CPA}} = t_{\text{CPA}} - t_{\text{sensing}}$.
 
 ### 2.1 Segment Parameterization
 For each adjacent pair of trajectory points $(p_0, p_1)$ recorded at timestamps $t_0 < t_1$, the position is parameterized linearly by $\alpha \in [0, 1]$:
@@ -35,31 +42,32 @@ $$\vec{p}(\alpha) = \vec{p}_0 + \alpha (\vec{p}_1 - \vec{p}_0), \quad t(\alpha) 
 In local metric coordinates relative to the target $(\Delta x, \Delta y)$:
 $$\alpha^* = \text{clip}\left( -\frac{\vec{p}_0 \cdot (\vec{p}_1 - \vec{p}_0)}{\|\vec{p}_1 - \vec{p}_0\|^2}, \, 0, \, 1 \right)$$
 
-### 2.2 Extracted Observables at CPA
-At the optimal parameter $\alpha^*$, the module evaluates:
-1. **CPA Timestamp ($t_{\text{CPA}}$)** and temporal offset $\Delta t_{\text{offset}} = t_{\text{CPA}} - t_{\text{sensing}}$.
-2. **Geodesic Distance ($d_{\text{CPA}}$)** via Haversine great-circle calculation.
-3. **Interpolated Track Heading ($\psi_{\text{adsb}}$)** evaluated along the shortest circular path.
-4. **Interpolated Ground Speed ($v_{\text{adsb}}$)**.
-5. **Barometric Altitude ($h_{\text{baro}}$)** and **Geometric Altitude ($h_{\text{geom}}$)**.
+### 2.2 Combined Heading Tolerance for Case 2
+In Case 2 (high-altitude cruise), the true flight altitude is not known a priori and is bounded within the realistic cruising interval $[9000, 12000]\text{ m}$. Over this altitude interval, the parallax-corrected heading $\psi_{\text{corr}}(h)$ varies from $318.8^\circ$ ($h=9\text{ km}$) to $313.9^\circ$ ($h=12\text{ km}$), yielding a sensitivity spread of $\Delta \psi_{\text{alt}} \approx 4.90^\circ$.
+
+The heading tolerance combines the apparent heading measurement uncertainty ($\sigma_{\text{app}} \approx 1.8^\circ$) in quadrature with the altitude interval sensitivity ($\sigma_{\text{alt}} = \Delta \psi_{\text{alt}} / 2 \approx 2.45^\circ$):
+
+$$\sigma_{\text{comb}} = \sqrt{\sigma_{\text{app}}^2 + \sigma_{\text{alt}}^2} = \sqrt{1.8^2 + 2.45^2} \approx 3.04^\circ \implies \text{Tolerance}_{2\sigma} = 2 \times 3.04^\circ \approx \pm 6.1^\circ$$
 
 ---
 
-## 3. Altitude Modeling: Barometric vs Geometric
+## 3. Altitude Modeling: Barometric vs Geometric over Terrain ($h_{\text{AGL}}$)
 
 ADS-B messages report two distinct vertical coordinate representations:
-- **Barometric Altitude ($h_{\text{baro}}$)**: Derived from static pressure transducers calibrated to the International Standard Atmosphere (ISA, $1013.25\text{ hPa}$) above the transition altitude (Flight Levels). In non-standard meteorological conditions (summer high-pressure or winter cold-air domes), barometric altitude deviates from the true physical height.
-- **Geometric Altitude ($h_{\text{geom}}$)**: Derived directly from onboard GNSS satellite constellation solutions, providing physical height above the WGS84 reference ellipsoid.
+- **Barometric Altitude ($h_{\text{baro}}$)**: Derived from static pressure transducers calibrated to the International Standard Atmosphere (ISA, $1013.25\text{ hPa}$ / QNE) above the transition altitude (Flight Levels). **Barometric altitude is NOT height above the terrain**; in non-standard meteorological conditions (summer high pressure or cold air domes), it deviates significantly from true geometric altitude.
+- **Geometric Altitude ($h_{\text{geom}}$)**: Derived directly from onboard GNSS satellite constellation solutions, providing physical height above the WGS84 reference ellipsoid / geoid (MSL).
 
-All altitudes reported in feet are converted to meters using the exact conversion factor:
-$$h_{[\text{m}]} = h_{[\text{ft}]} \times 0.3048$$
+### 3.1 Pushbroom Parallax Depends on Height Above Terrain ($h_{\text{AGL}}$)
+Because stereoscopic parallax between MSI spectral bands arises from optical displacement relative to the imaged ground surface, the physical height variable required by the pushbroom parallax model is the **height above terrain ($h_{\text{AGL}}$)**:
 
-When geometric altitude is available, the difference $\Delta h = h_{\text{geom}} - h_{\text{baro}}$ is documented.
+$$h_{\text{AGL}} = \max\left(0.0, \, h_{\text{geom}} - z_{\text{terrain}}\right)$$
 
-### 3.1 Parallax Recalculation with Real Flight Level
-For high-altitude flights (Case 2), flight altitude was initially modeled as a user parameter ($h = 10.5\text{ km}$). When ADS-B telemetry supplies the actual flight altitude $h_{\text{adsb}}$, `s2motion` recalculates the stereoscopic parallax correction using the complete pushbroom model:
+Where $z_{\text{terrain}}$ is the local ground elevation (e.g., $42\text{ m}$ for Bilbao Airport LEBB). When geometric GNSS altitude is unavailable, barometric altitude corrected for local elevation is used as fallback ($h_{\text{baro}} - z_{\text{terrain}}$).
 
-$$\vec{v}_{\text{true}}(h_{\text{adsb}}) = \left(1 - \frac{h_{\text{adsb}}}{H}\right) \vec{v}_{\text{apparent}} + \frac{h_{\text{adsb}}}{H} \vec{v}_{\text{track}}$$
+### 3.2 Parallax Recalculation with Real Flight Altitude AGL
+When ADS-B telemetry supplies the actual flight altitude $h_{\text{AGL}}$, `s2motion` recalculates the stereoscopic parallax correction using the complete pushbroom model:
+
+$$\vec{v}_{\text{true}}(h_{\text{AGL}}) = \left(1 - \frac{h_{\text{AGL}}}{H}\right) \vec{v}_{\text{apparent}} + \frac{h_{\text{AGL}}}{H} \vec{v}_{\text{track}}$$
 
 The recalculated velocity is then compared directly against the ADS-B ground speed ($v_{\text{adsb}}$) to compute the residual difference:
 

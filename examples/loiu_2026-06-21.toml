@@ -36,9 +36,14 @@ altitude_max_m = 12000.0
 target_lat = 43.302306
 target_lon = -2.918740
 sensing_time = "2026-06-21T11:09:40Z"
-max_distance_m = 2000.0  # Cruising en-route aircraft
-time_window_s = 60.0
-heading_tolerance_deg = 3.6  # 2-sigma (~2 * 1.8 deg)
+max_distance_m = 2000.0  # Cruising en-route aircraft (evaluated at capture instant)
+time_window_s = 60.0  # Search / extraction window
+max_time_offset_s = 20.0  # Acceptance limit: |Δt_CPA| <= 20 s (tile scan duration ~15-20 s)
+terrain_elevation_m = 42.0  # Regional terrain elevation MSL (subtracted to obtain height AGL)
+# Combined 2-sigma heading tolerance: apparent heading sigma (~1.8°) combined in quadrature
+# with altitude interval sensitivity (9-12 km, Δψ ~ 4.9° -> sigma_alt ~ 2.45°):
+# sigma_comb = sqrt(1.8^2 + 2.45^2) ≈ 3.04° -> 2-sigma ≈ 6.1°
+heading_tolerance_deg = 6.1
 heading_deg = 316.4
 speed_kmh = 932.0
 speed_min_kmh = 907.0
