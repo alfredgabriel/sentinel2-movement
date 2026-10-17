@@ -70,6 +70,7 @@ def test_load_toml_config_valid() -> None:
     """Verify loading the actual example configuration file."""
     cfg = load_toml_config(Path("examples/loiu_2026-08-12.toml"))
     assert cfg["scene"]["date"] == "2026-08-12"
+    assert cfg["scene"]["runway_heading"] == 116.7
     assert cfg["seeds"]["red"] == [66, 158]
     assert cfg["seeds"]["green"] == [70, 160]
     assert cfg["seeds"]["blue"] == [74, 162]

@@ -44,6 +44,23 @@ def test_band_aliases_and_gsd() -> None:
     assert DEFAULT_PIXEL_SIZE_M == 10.0
 
 
+def test_lebb_runway_constants() -> None:
+    """Verify Bilbao runway threshold coordinates and geodetic heading."""
+    from s2motion.constants import (
+        BILBAO_RUNWAY_12_30_HEADING_DEG,
+        LEBB_RUNWAY_12_THR_WGS84,
+        LEBB_RUNWAY_30_THR_WGS84,
+        LEBB_RUNWAY_LENGTH_M,
+        LEBB_RUNWAY_WIDTH_M,
+    )
+
+    assert abs(BILBAO_RUNWAY_12_30_HEADING_DEG - 116.7) < 0.1
+    assert LEBB_RUNWAY_12_THR_WGS84[0] > 43.3
+    assert LEBB_RUNWAY_30_THR_WGS84[0] < 43.3
+    assert LEBB_RUNWAY_LENGTH_M == 2600.0
+    assert LEBB_RUNWAY_WIDTH_M == 45.0
+
+
 def test_citations_content() -> None:
     """Verify verified citations are fully populated."""
     assert "krauss_2021" in CITATIONS

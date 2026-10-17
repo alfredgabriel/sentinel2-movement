@@ -19,7 +19,7 @@ Dado que Sentinel-2 vuela en órbita descendente heliosíncrona (aproximadamente
 **Secuencia cronológica de adquisición sobre el terreno**:
 $$\mathbf{Rojo \; (B04)} \longrightarrow \mathbf{Verde \; (B03)} \longrightarrow \mathbf{Azul \; (B02)}$$
 
-Un objeto que se desplaza a gran velocidad (como un avión durante el despegue) avanza sobre el terreno entre exposiciones consecutivas. En una composición RGB (Rojo=B04, Verde=B03, Azul=B02), se observa como **tres manchas de colores alineadas en el sentido de la marcha**:
+Un objeto que se desplaza a gran velocidad (como un avión en aproximación o en vuelo) avanza sobre su trayectoria entre exposiciones consecutivas. En una composición RGB (Rojo=B04, Verde=B03, Azul=B02), se observa como **tres manchas de colores alineadas en el sentido de la marcha**:
 $$\text{Rojo} \longrightarrow \text{Verde} \longrightarrow \text{Azul}$$
 
 ---
@@ -60,15 +60,21 @@ s2motion measure --config examples/loiu_2026-08-12.toml --weather
 
 ## 4. Casos de uso incluidos
 
-### Caso 1: Despegue por la pista 12 del Aeropuerto de Bilbao (2026-08-12)
-- **Escenario**: Avión acelerando en la pista 12/30 (rumbo pista 12: $120.0^\circ$) hacia el sureste.
-- **Sentido del movimiento**: Rojo $\to$ Verde $\to$ Azul.
+### Caso 1: Aeronave en aproximación a la pista 12, Aeropuerto de Bilbao (2026-08-12)
+- **Escenario**: Aeronave alineada con la pista 12 del Aeropuerto de Bilbao (LEBB/BIO) (hipótesis de trabajo: aproximación final corta, pendiente de confirmación ADS-B).
+- **Contexto espacial y georreferenciación**:
+  - Coordenadas de los umbrales de la pista 12/30 según [ENAIRE AIP España (AD 2-LEBB)](https://aip.enaire.es/AIP/):
+    - **THR 12 (NW)**: `43°18'22.85"N, 002°55'29.78"W` (`43.306347°N, -2.924939°W`)
+    - **THR 30 (SE)**: `43°17'45.91"N, 002°53'49.02"W` (`43.296086°N, -2.896950°W`)
+    - Eje geodésico calculado entre umbrales: **$116.7^\circ$** (la designación 12 está redondeada a $120^\circ$).
+  - **Posición georreferenciada**: El blanco detectado se sitúa en **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$**, a aproximadamente **$1085\text{ m}$ al noroeste del umbral 12** sobre el eje prolongado ($-1085\text{ m}$ a lo largo de la prolongación) y a tan solo **$5.0\text{ m}$ de la línea central prolongada**.
+  - **Estado**: La aeronave no está sobre la superficie de la pista (`is_on_runway: False`), sino en el pasillo de aproximación recta con rumbo **$117.4^\circ$**, alineada a menos de **$0.7^\circ$** del eje geodésico de la pista 12.
 
 #### Vista general del recorte completo (Aeropuerto de Bilbao / Loiu)
 ![Vista general 2026-08-12](docs/img/loiu_2026-08-12_overview.png)
 
-#### Análisis cinemático subpíxel y fusión aerodinámica/meteorológica
-![Despegue Loiu 2026-08-12](docs/img/loiu_2026-08-12_measured.png)
+#### Análisis cinemático subpíxel y contexto ambiental
+![Aproximación Loiu 2026-08-12](docs/img/loiu_2026-08-12_measured.png)
 
 ```text
 ============================================================
@@ -83,27 +89,32 @@ Delta t:      1.005 s (range: 0.985 - 1.025 s)
 Coherence Diagnostics:
   - Green collinearity offset: 0.11 px (expected < ~1.0 px)
   - Green relative position:  0.47 (expected: 0.48, delta: 0.01)
-  - Runway axis difference:   2.6 deg (alineado pista 12)
+  - Runway axis difference:   0.7 deg
 ------------------------------------------------------------
-Aeronautical & Weather Telemetry (Open-Meteo):
-  - Surface Weather:  28.7 °C | 1014.4 hPa | Wind 10.2 km/h (5.5 kt) from 14°
-  - Wind Components:  Headwind: -2.4 km/h (-1.3 kt) | Crosswind: -9.9 km/h
-  - Air Density:      Density Altitude: 1776 ft (+1638 ft vs field elevation)
+Runway Position (LEBB Runway 12/30, axis 116.7°):
+  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874°
+  - Proximity to THR 12:    1085 m (along extended axis: -1085 m)
+  - Centerline Offset:      5.0 m
+  - Status:                 APPROACH CORRIDOR (1085 m before THR 12) [on runway surface: False]
+------------------------------------------------------------
+Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
+  - Surface Weather:  28.9 °C | 1014.4 hPa | Wind 10.6 km/h (5.7 kt) from 14°
+  - Wind Components:  Headwind: -2.4 km/h (-1.3 kt) | Crosswind: -10.3 km/h
+  - Air Density:      Density Altitude: 1803 ft (+1665 ft vs field elevation)
   - True Airspeed:    TAS: 293 km/h [158 kt] (Ground Speed: 295 km/h)
-  - Wind Alignment:   Tailwind component present
+  - Note:             Surface wind does not imply physical causality for aircraft ground speed.
 ============================================================
 ```
 
-**Interpretación física y aerodinámica**:
-- **Velocidad de rotación ($V_r$)**: $295\text{ km/h}$ ($82.0\text{ m/s}$) es compatible con la rotación de un bimotor comercial de medio alcance (tipo A320 o B737).
-- **Rumbo**: $117.4^\circ$, alineado a menos de $2.6^\circ$ del eje de pista 12 ($120.0^\circ$).
-- **Impacto de la densidad del aire (Altitud Densimétrica)**: A $28.7^\circ\text{C}$ en pleno mediodía estival, la **Altitud de Densidad** se eleva a **$1.776\text{ ft}$** ($+1.638\text{ ft}$ sobre los $138\text{ ft}$ de elevación del campo). El aire menos denso reduce la sustentación y el empuje de las turbinas, lo que explica la alta velocidad de carrera antes del despegue.
-- **Descomposición del viento**: Con viento de $10.2\text{ km/h}$ desde $014^\circ$, la componente de viento de cola ($-2.4\text{ km/h}$) reduce la velocidad respecto al aire (**TAS = $293\text{ km/h}$ / $158\text{ kt}$**), requiriendo que la aeronave ruede más rápido sobre el terreno para generar la sustentación aerodinámica necesaria.
+**Interpretación física y cinemática**:
+- **Hipótesis de fase de vuelo**: La velocidad sobre el terreno de **$295\text{ km/h}$** ($82.0\text{ m/s}$ / $159\text{ kt}$) y el rumbo de **$117.4^\circ$** a $1.09\text{ km}$ del umbral son compatibles con un reactor comercial en aproximación final corta a la pista 12 (típicamente $140 - 160\text{ kt}$ de velocidad indicada). Sin datos ADS-B externos, se documenta como hipótesis de trabajo sin validar.
+- **Alineación con el eje de pista**: El rumbo medido ($117.4^\circ$) se desvía únicamente **$0.7^\circ$** respecto al eje geodésico de la pista ($116.7^\circ$) calculado a partir de las coordenadas oficiales de los umbrales de ENAIRE AIP.
+- **Contexto meteorológico de superficie**: El reanálisis de Open-Meteo ERA5 (interpolado a la hora exacta de la toma, $11:09:40\text{ UTC}$) indica $28.9^\circ\text{C}$, QNH $1014.4\text{ hPa}$ y viento de superficie de $10.6\text{ km/h}$ desde $014^\circ$. Estos parámetros representan el contexto ambiental a 10 m de altura y no se emplean como explicación causal de la velocidad de la aeronave.
 
 ---
 
 ### Caso 2: Avión a alta cota con estela visible (2026-06-21)
-- **Escenario**: Avión en crucero a gran altitud ($\approx 10\text{ km}$) rumbo noroeste ($330.4^\circ$).
+- **Escenario**: Avión en crucero a gran altitud ($\approx 10 - 11\text{ km}$) rumbo noroeste ($330.4^\circ$).
 
 #### Vista general de la escena con estela de condensación
 ![Vista general 2026-06-21](docs/img/loiu_2026-06-21_overview.png)
@@ -124,11 +135,14 @@ Delta t:      1.005 s (range: 0.985 - 1.025 s)
 Coherence Diagnostics:
   - Green collinearity offset: 0.54 px (expected < ~1.0 px)
   - Green relative position:  0.46 (expected: 0.48, delta: 0.01)
-  - Runway axis difference:   30.4 deg
 ============================================================
 ```
 
-**Nota sobre paralaje**: A gran altura, el desplazamiento aparente mezcla la velocidad real del avión con el paralaje estereoscópico inducido por la velocidad orbital del satélite ($\sim 7.2\text{ km/s}$).
+**Interpretación**:
+- La velocidad aparente sin corregir es de **$1151\text{ km/h}$**, superior a la velocidad de crucero típica de un reactor comercial subsónico ($800 - 900\text{ km/h}$).
+- **Física del sensor**: Para un objeto en vuelo a gran altitud, el desplazamiento observado inter-banda combina el movimiento horizontal real del avión y el paralaje estereoscópico generado por el avance orbital del satélite proyectado a la altitud del blanco.
+- Se omiten las comparaciones con la pista y los datos meteorológicos de superficie por carecer de aplicabilidad a un blanco en crucero a 10 km de altitud.
+- La recuperación de la velocidad real requiere la corrección estereoscópica de paralaje (Fase 3). Sin telemetría ADS-B o altitud de vuelo contrastada, este caso se presenta como demostración de dispersión cromática no validada.
 
 ---
 

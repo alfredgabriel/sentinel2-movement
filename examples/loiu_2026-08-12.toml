@@ -1,13 +1,13 @@
-# Case study: Aircraft takeoff from Bilbao Airport (LEBB/BIO)
+# Case study: Aircraft on approach to Bilbao Airport (LEBB/BIO) runway 12 (hypothesis, without ADS-B)
 # Date: 2026-08-12
-# The aircraft is accelerating on runway 12/30 and taking off towards the southeast (runway 12, heading ~117.4°).
+# The aircraft is located ~1.09 km NW of threshold 12, aligned within ~10 m of the extended centerline with heading ~117.4°.
 # Chronological order of motion: Red -> Green -> Blue
 
 [scene]
 date = "2026-08-12"
 bbox = [-2.945, 43.285, -2.875, 43.325]
-runway_heading = 120.0
-description = "Aircraft takeoff from Bilbao Airport (LEBB/BIO) runway 12"
+runway_heading = 116.7
+description = "Aircraft on approach to Bilbao Airport (LEBB/BIO) runway 12 (hypothesis, without ADS-B)"
 
 [seeds]
 # Approximate (x, y) coordinates measured in unscaled crop raster (10 m/pixel)

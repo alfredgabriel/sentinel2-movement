@@ -88,7 +88,7 @@ def test_compute_aerodynamics_end_to_end() -> None:
 
     aero = compute_aerodynamics(
         ground_speed_mps=82.0,  # ~295 km/h
-        heading_deg=117.4,  # Runway 12 takeoff
+        heading_deg=117.4,  # Runway 12 approach alignment
         weather=obs,
         elevation_m=42.0,
     )
@@ -100,6 +100,37 @@ def test_compute_aerodynamics_end_to_end() -> None:
     # Density altitude in feet is > 1500 ft above field
     assert aero.density_altitude_ft > 1500.0
     assert aero.density_delta_ft > 1300.0
+
+
+def test_interpolate_weather_from_hourly() -> None:
+    """Verify linear interpolation of weather observations between hourly points."""
+    from s2motion.weather import interpolate_weather_from_hourly
+
+    fake_hourly = {
+        "time": ["2026-08-12T11:00", "2026-08-12T12:00"],
+        "temperature_2m": [20.0, 30.0],
+        "surface_pressure": [1010.0, 1020.0],
+        "wind_speed_10m": [10.0, 20.0],
+        "wind_direction_10m": [350.0, 10.0],  # Crosses 0 deg: shortest difference is +20 deg
+        "wind_gusts_10m": [15.0, 25.0],
+    }
+
+    # At 11:30 (halfway)
+    obs = interpolate_weather_from_hourly(
+        hourly=fake_hourly,
+        date_str="2026-08-12",
+        datetime_str="2026-08-12T11:30:00Z",
+        hour_utc=11,
+        latitude=43.3,
+        longitude=-2.9,
+    )
+    assert abs(obs.temperature_c - 25.0) < 1e-4
+    assert abs(obs.surface_pressure_hpa - 1015.0) < 1e-4
+    assert abs(obs.wind_speed_kmh - 15.0) < 1e-4
+    # 350 + 0.5 * 20 = 360 = 0.0
+    assert abs(obs.wind_direction_deg - 0.0) < 1e-4 or abs(obs.wind_direction_deg - 360.0) < 1e-4
+    assert obs.wind_gusts_mps is not None
+    assert abs(obs.wind_gusts_mps * 3.6 - 20.0) < 1e-4
 
 
 @pytest.mark.network

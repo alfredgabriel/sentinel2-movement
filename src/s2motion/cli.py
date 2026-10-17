@@ -23,10 +23,12 @@ else:
 
 from s2motion.constants import (
     BILBAO_AIRPORT_BBOX,
-    BILBAO_RUNWAY_12_30_HEADING_DEG,
     DEFAULT_PIXEL_SIZE_M,
+    LEBB_RUNWAY_12_THR_WGS84,
+    LEBB_RUNWAY_30_THR_WGS84,
 )
 from s2motion.detect import detect_all_centroids
+from s2motion.geo import calculate_runway_proximity, pixel_to_wgs84
 from s2motion.measure import calculate_motion
 from s2motion.stac import get_scene_by_date, read_scene_bands, search_scenes
 from s2motion.viz import create_annotated_figure, create_rgb_composite, show_interactive_viewer
@@ -108,7 +110,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
     """Execute 'measure' subcommand: centroid detection, kinematics, and figure generation."""
     date_str: str | None = None
     bbox = BILBAO_AIRPORT_BBOX
-    runway_heading: float | None = BILBAO_RUNWAY_12_30_HEADING_DEG
+    runway_heading: float | None = None
     seeds: dict[str, tuple[float, float]] = {}
     kernel_size = 9
     radius = 3
@@ -190,6 +192,21 @@ def cmd_measure(args: argparse.Namespace) -> int:
             f"  - {b_name.capitalize():6s} (initial: {seeds[b_name]}): subpixel centroid = ({cx:.2f}, {cy:.2f})"
         )
 
+    # 3. Georeference centroids to WGS84 and compute runway proximity if applicable
+    runway_prox = None
+    if meta.get("transform") is not None and meta.get("crs") is not None:
+        col_r, row_r = centroids["red"]
+        lon_r, lat_r = pixel_to_wgs84(col_r, row_r, meta["transform"], meta["crs"])
+        print(f"\nGeoreferenced Red centroid: lat {lat_r:.6f}°, lon {lon_r:.6f}° (WGS84)")
+
+        if runway_heading is not None:
+            runway_prox = calculate_runway_proximity(
+                obj_lon=lon_r,
+                obj_lat=lat_r,
+                thr12_latlon=LEBB_RUNWAY_12_THR_WGS84,
+                thr30_latlon=LEBB_RUNWAY_30_THR_WGS84,
+            )
+
     print("\nCalculating kinematics and uncertainty...")
     result = calculate_motion(
         red_centroid=centroids["red"],
@@ -197,6 +214,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         green_centroid=centroids.get("green"),
         pixel_size_m=DEFAULT_PIXEL_SIZE_M,
         runway_heading_deg=runway_heading,
+        runway_proximity=runway_prox,
     )
 
     if weather_enabled:
@@ -211,7 +229,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
                 pass
 
         print(
-            f"Fetching Open-Meteo weather for ({w_lat:.3f}, {w_lon:.3f}) at {date_str} {hour_utc:02d}:00 UTC..."
+            f"Fetching Open-Meteo weather for ({w_lat:.3f}, {w_lon:.3f}) at {date_str} (scene time: {dt_val})..."
         )
         try:
             weather_obs = fetch_historical_weather(
@@ -219,6 +237,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
                 longitude=w_lon,
                 date_str=date_str,
                 hour_utc=hour_utc,
+                datetime_str=dt_val,
             )
             aero = compute_aerodynamics(
                 ground_speed_mps=result.speed_mps,

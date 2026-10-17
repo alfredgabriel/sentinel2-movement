@@ -19,7 +19,7 @@ from s2motion.measure import calculate_motion
 
 
 def test_synthetic_moving_aircraft_recovery() -> None:
-    """Simulate an aircraft moving at 270 km/h with 120 deg heading (runway 12 takeoff)."""
+    """Simulate an aircraft moving at 270 km/h with 120 deg heading (runway 12 alignment)."""
     # Ground truth parameters
     true_speed_kmh = 270.0
     true_speed_mps = true_speed_kmh / 3.6  # 75.0 m/s

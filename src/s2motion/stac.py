@@ -93,6 +93,38 @@ def get_scene_by_date(
     return items[0]
 
 
+def read_band_window_with_georef(
+    item: Item,
+    asset_name: str,
+    bbox: tuple[float, float, float, float] = BILBAO_AIRPORT_BBOX,
+) -> tuple[np.ndarray, Any, Any]:
+    """Read a spatial window of a single band along with its Affine transform and CRS.
+
+    Args:
+        item: STAC Item containing asset metadata and remote URLs.
+        asset_name: Asset identifier (e.g. 'red', 'green', 'blue', 'nir').
+        bbox: Target bounding box in WGS84 (lon_min, lat_min, lon_max, lat_max).
+
+    Returns:
+        Tuple of (2D float32 array, window Affine transform, raster CRS).
+    """
+    asset_key = STAC_ASSET_MAP.get(asset_name, asset_name)
+    if asset_key not in item.assets:
+        raise KeyError(
+            f"Asset '{asset_key}' not found in item {item.id}. Available: {list(item.assets.keys())}"
+        )
+
+    href = item.assets[asset_key].href
+    logger.debug("Reading window from %s (asset: %s)", href, asset_key)
+
+    with rasterio.open(href) as src:
+        bounds = transform_bounds("EPSG:4326", src.crs, *bbox)
+        win = from_bounds(*bounds, transform=src.transform)
+        win_transform = src.window_transform(win)
+        data = src.read(1, window=win).astype(np.float32)
+        return data, win_transform, src.crs
+
+
 def read_band_window(
     item: Item,
     asset_name: str,
@@ -114,20 +146,8 @@ def read_band_window(
     Raises:
         KeyError: If asset_name is not present in item assets.
     """
-    asset_key = STAC_ASSET_MAP.get(asset_name, asset_name)
-    if asset_key not in item.assets:
-        raise KeyError(
-            f"Asset '{asset_key}' not found in item {item.id}. Available: {list(item.assets.keys())}"
-        )
-
-    href = item.assets[asset_key].href
-    logger.debug("Reading window from %s (asset: %s)", href, asset_key)
-
-    with rasterio.open(href) as src:
-        bounds = transform_bounds("EPSG:4326", src.crs, *bbox)
-        win = from_bounds(*bounds, transform=src.transform)
-        data = src.read(1, window=win).astype(np.float32)
-        return data
+    data, _, _ = read_band_window_with_georef(item, asset_name, bbox=bbox)
+    return data
 
 
 def read_scene_bands(
@@ -145,7 +165,7 @@ def read_scene_bands(
     Returns:
         Tuple of:
           - Dict mapping asset name to cropped 2D float32 array
-          - Metadata dict containing scene date, item id, and cloud cover
+          - Metadata dict containing scene date, item id, cloud cover, transform, and crs
     """
     raw_bands = {asset: read_band_window(item, asset, bbox=bbox) for asset in assets}
 
@@ -154,11 +174,30 @@ def read_scene_bands(
     min_w = min(arr.shape[1] for arr in raw_bands.values())
 
     bands = {asset: arr[:min_h, :min_w] for asset, arr in raw_bands.items()}
+
+    transform = None
+    crs = None
+    first_asset = assets[0] if assets else "red"
+    asset_key = STAC_ASSET_MAP.get(first_asset, first_asset)
+    if hasattr(item, "assets") and isinstance(item.assets, dict) and asset_key in item.assets:
+        try:
+            with rasterio.open(item.assets[asset_key].href) as src:
+                bounds = transform_bounds("EPSG:4326", src.crs, *bbox)
+                win = from_bounds(*bounds, transform=src.transform)
+                transform = src.window_transform(win)
+                crs = src.crs
+        except Exception as err:
+            logger.debug("Could not extract transform/crs from STAC asset: %s", err)
+
     meta = {
-        "id": item.id,
-        "datetime": item.properties.get("datetime", ""),
-        "date": item.properties.get("datetime", "")[:10],
-        "cloud_cover": item.properties.get("eo:cloud_cover"),
+        "id": getattr(item, "id", ""),
+        "datetime": item.properties.get("datetime", "") if hasattr(item, "properties") else "",
+        "date": (item.properties.get("datetime", "")[:10] if hasattr(item, "properties") else ""),
+        "cloud_cover": (
+            item.properties.get("eo:cloud_cover") if hasattr(item, "properties") else None
+        ),
         "shape": (min_h, min_w),
+        "transform": transform,
+        "crs": crs,
     }
     return bands, meta

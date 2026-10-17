@@ -137,19 +137,24 @@ def create_annotated_figure(
         f"Collinearity: {result.collinearity_px:.2f} px\n"
         f"Green pos:    {result.green_relative_fraction:.2f} (exp: {result.expected_green_fraction:.2f})"
     )
-    if result.runway_diff_deg is not None:
+    if result.runway_proximity is not None:
+        p = result.runway_proximity
+        metrics_text += (
+            f"\nRunway Axis Diff: {result.runway_diff_deg:.1f}°\n"
+            f"Distance to THR 12: {p.dist_thr12_m:.0f} m (offset: {p.cross_axis_m:.1f} m)"
+        )
+    elif result.runway_diff_deg is not None:
         metrics_text += f"\nRunway axis diff: {result.runway_diff_deg:.1f}°"
 
     if result.aero is not None:
         a = result.aero
         obs = a.weather
         metrics_text += (
-            f"\n-- Meteorological & Aerodynamics --\n"
+            f"\n-- Surface Weather Context (10m AGL) --\n"
             f"Wind:      {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°\n"
             f"Headwind:  {a.headwind_mps * 3.6:+.1f} km/h ({a.headwind_mps * 1.94384:+.1f} kt) | Cross: {a.crosswind_mps * 3.6:+.1f} km/h\n"
             f"Airspeeds: TAS = {a.true_airspeed_kmh:.0f} km/h [{a.true_airspeed_knots:.0f} kt] (GS: {result.speed_kmh:.0f})\n"
-            f"Density:   DA = {a.density_altitude_ft:.0f} ft ({a.density_delta_ft:+.0f} ft vs field)\n"
-            f"Alignment: {'Favorable headwind' if a.is_favorable_headwind else 'Tailwind component present'}"
+            f"Density:   DA = {a.density_altitude_ft:.0f} ft ({a.density_delta_ft:+.0f} ft vs field)"
         )
 
         # Draw wind indicator arrow on top-left of main panel

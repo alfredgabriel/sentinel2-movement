@@ -82,8 +82,19 @@ BILBAO_AIRPORT_BBOX: Final[tuple[float, float, float, float]] = (
     43.325,
 )
 
-# Runway 12/30 heading in degrees clockwise from true North (~120 deg for 12, ~300 deg for 30)
-BILBAO_RUNWAY_12_30_HEADING_DEG: Final[float] = 120.0
+# Bilbao Airport (LEBB) Runway 12/30 threshold coordinates from AIP España (ENAIRE AD 2-LEBB):
+# THR 12 (NW): 43°18'22.85"N, 002°55'29.78"W (lat 43.306347, lon -2.924939)
+# THR 30 (SE): 43°17'45.91"N, 002°53'49.02"W (lat 43.296086, lon -2.896950)
+# Dimensions: 2600 m x 45 m.
+# True forward geodetic azimuth computed between thresholds: 116.73° (rounded to 116.7°).
+LEBB_RUNWAY_12_THR_WGS84: Final[tuple[float, float]] = (43.306347, -2.924939)
+LEBB_RUNWAY_30_THR_WGS84: Final[tuple[float, float]] = (43.296086, -2.896950)
+LEBB_RUNWAY_WIDTH_M: Final[float] = 45.0
+LEBB_RUNWAY_LENGTH_M: Final[float] = 2600.0
+
+# Runway 12/30 true geodetic axis heading in degrees clockwise from true North
+# Derived from AIP threshold coordinates (116.7°); '120°' is only the nominal magnetic runway designation.
+BILBAO_RUNWAY_12_30_HEADING_DEG: Final[float] = 116.7
 
 # ---------------------------------------------------------------------------
 # AWS Earth Search STAC Defaults

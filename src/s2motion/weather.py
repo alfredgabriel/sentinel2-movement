@@ -13,6 +13,7 @@ import math
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +116,7 @@ def calculate_density_altitude(
 
     Density altitude represents the altitude in the standard atmosphere at which
     the air density is equal to the actual air density observed. High density
-    altitude degrades engine thrust and wing lift, requiring higher ground speed
-    and a longer takeoff run.
+    altitude degrades engine thrust and aerodynamic wing lift.
 
     Args:
         elevation_m: Airport elevation above mean sea level in meters.
@@ -216,23 +216,130 @@ def compute_aerodynamics(
     )
 
 
+def interpolate_weather_from_hourly(
+    hourly: dict[str, list[Any]],
+    date_str: str,
+    datetime_str: str | None,
+    hour_utc: int,
+    latitude: float,
+    longitude: float,
+) -> WeatherObservation:
+    """Extract and linearly interpolate surface weather telemetry from hourly series.
+
+    Interpolates between adjacent hourly steps when a full ISO 8601 UTC datetime is provided.
+
+    Args:
+        hourly: Dictionary containing hourly series from Open-Meteo.
+        date_str: Calendar date string (YYYY-MM-DD).
+        datetime_str: Optional ISO 8601 UTC timestamp string (e.g. '2026-08-12T11:09:40Z').
+        hour_utc: Integer hour (0-23) used if datetime_str is None or lacks sub-hour precision.
+        latitude: Target latitude in degrees.
+        longitude: Target longitude in degrees.
+
+    Returns:
+        WeatherObservation object representing surface conditions (10 m AGL).
+    """
+    target_h = max(0, min(23, hour_utc))
+    frac = 0.0
+    ts_str = f"{date_str}T{target_h:02d}:00:00Z"
+
+    if datetime_str and "T" in datetime_str:
+        try:
+            # Parse time component: HH:MM:SS
+            time_part = datetime_str.split("T")[1].rstrip("Z")
+            parts = time_part.split(":")
+            h_val = int(parts[0])
+            m_val = int(parts[1]) if len(parts) > 1 else 0
+            s_val = float(parts[2]) if len(parts) > 2 else 0.0
+
+            target_h = max(0, min(23, h_val))
+            frac = (m_val * 60.0 + s_val) / 3600.0
+            ts_str = datetime_str
+        except Exception:
+            frac = 0.0
+
+    times = hourly.get("time", [])
+    h0 = target_h
+    if times:
+        prefix = f"{date_str}T{target_h:02d}:"
+        found = False
+        for i, t in enumerate(times):
+            if t.startswith(prefix):
+                h0 = i
+                found = True
+                break
+        if not found:
+            h0 = min(target_h, len(times) - 1)
+
+    max_idx = len(hourly["temperature_2m"]) - 1
+    h0 = max(0, min(max_idx, h0))
+    h1 = min(max_idx, h0 + 1) if frac > 0.0 else h0
+    f = frac if h1 > h0 else 0.0
+
+    temp0 = float(hourly["temperature_2m"][h0])
+    temp1 = float(hourly["temperature_2m"][h1])
+    temp_c = (1.0 - f) * temp0 + f * temp1
+
+    press0 = float(hourly["surface_pressure"][h0])
+    press1 = float(hourly["surface_pressure"][h1])
+    press_hpa = (1.0 - f) * press0 + f * press1
+
+    wind0 = float(hourly["wind_speed_10m"][h0])
+    wind1 = float(hourly["wind_speed_10m"][h1])
+    wind_kmh = (1.0 - f) * wind0 + f * wind1
+
+    dir0 = float(hourly["wind_direction_10m"][h0])
+    dir1 = float(hourly["wind_direction_10m"][h1])
+    # Angular interpolation using shortest circular distance
+    dir_diff = ((dir1 - dir0 + 180.0) % 360.0) - 180.0
+    wind_dir = ((dir0 + f * dir_diff) + 360.0) % 360.0
+
+    gusts_mps = None
+    if "wind_gusts_10m" in hourly and hourly["wind_gusts_10m"][h0] is not None:
+        g0 = float(hourly["wind_gusts_10m"][h0])
+        if h1 > h0 and hourly["wind_gusts_10m"][h1] is not None:
+            g1 = float(hourly["wind_gusts_10m"][h1])
+            gusts_mps = ((1.0 - f) * g0 + f * g1) * KMH_TO_MPS
+        else:
+            gusts_mps = g0 * KMH_TO_MPS
+
+    return WeatherObservation(
+        timestamp_utc=ts_str,
+        latitude=latitude,
+        longitude=longitude,
+        temperature_c=temp_c,
+        surface_pressure_hpa=press_hpa,
+        wind_speed_mps=wind_kmh * KMH_TO_MPS,
+        wind_direction_deg=wind_dir,
+        wind_gusts_mps=gusts_mps,
+    )
+
+
 def fetch_historical_weather(
     latitude: float,
     longitude: float,
     date_str: str,
     hour_utc: int = 11,
+    datetime_str: str | None = None,
     timeout_s: float = 10.0,
 ) -> WeatherObservation:
-    """Fetch hourly historical weather from Open-Meteo Historical Weather API.
+    """Fetch surface historical weather (10 m AGL) from Open-Meteo Historical Weather API.
 
     Open-Meteo Historical API is free, open, requires no API key, and provides
     ERA5-reanalysis calibrated observations for any global coordinate.
+    When datetime_str is provided, values are linearly interpolated to the exact scene timestamp.
+
+    Note:
+        These parameters capture local ground-level atmospheric state (10 m AGL)
+        and provide environmental context; they do not imply physical causality for
+        aircraft speeds or flight dynamics.
 
     Args:
         latitude: Target latitude in WGS84.
         longitude: Target longitude in WGS84.
         date_str: Date string in YYYY-MM-DD format.
         hour_utc: Hour of day in UTC (0-23, default: 11 for Sentinel-2 overpass).
+        datetime_str: Optional ISO 8601 UTC timestamp string for linear interpolation.
         timeout_s: Network timeout in seconds.
 
     Returns:
@@ -241,7 +348,6 @@ def fetch_historical_weather(
     Raises:
         RuntimeError: If API request fails or returns invalid data.
     """
-    hour_idx = max(0, min(23, hour_utc))
     params = {
         "latitude": f"{latitude:.4f}",
         "longitude": f"{longitude:.4f}",
@@ -254,12 +360,15 @@ def fetch_historical_weather(
     }
     url = f"https://archive-api.open-meteo.com/v1/archive?{urllib.parse.urlencode(params)}"
     logger.info(
-        "Fetching historical weather from Open-Meteo for %s %02d:00 UTC", date_str, hour_idx
+        "Fetching historical surface weather from Open-Meteo for %s (time: %s, hour: %02d UTC)",
+        date_str,
+        datetime_str or f"{hour_utc:02d}:00",
+        hour_utc,
     )
 
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "s2motion/0.1.0 (Sentinel-2 Aeronautical Motion Tracking)"},
+        headers={"User-Agent": "s2motion/0.1.0 (Sentinel-2 Motion Tracking)"},
     )
 
     try:
@@ -270,24 +379,13 @@ def fetch_historical_weather(
 
     hourly = data.get("hourly", {})
     try:
-        temp_c = float(hourly["temperature_2m"][hour_idx])
-        press_hpa = float(hourly["surface_pressure"][hour_idx])
-        wind_kmh = float(hourly["wind_speed_10m"][hour_idx])
-        wind_dir = float(hourly["wind_direction_10m"][hour_idx])
-
-        gusts_mps = None
-        if "wind_gusts_10m" in hourly and hourly["wind_gusts_10m"][hour_idx] is not None:
-            gusts_mps = float(hourly["wind_gusts_10m"][hour_idx]) * KMH_TO_MPS
-
-        return WeatherObservation(
-            timestamp_utc=f"{date_str}T{hour_idx:02d}:00:00Z",
+        return interpolate_weather_from_hourly(
+            hourly=hourly,
+            date_str=date_str,
+            datetime_str=datetime_str,
+            hour_utc=hour_utc,
             latitude=latitude,
             longitude=longitude,
-            temperature_c=temp_c,
-            surface_pressure_hpa=press_hpa,
-            wind_speed_mps=wind_kmh * KMH_TO_MPS,
-            wind_direction_deg=wind_dir,
-            wind_gusts_mps=gusts_mps,
         )
     except (KeyError, IndexError, TypeError) as err:
         raise RuntimeError(f"Unexpected response format from Open-Meteo: {err}") from err

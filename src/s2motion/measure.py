@@ -14,6 +14,7 @@ By tracking the subpixel displacement from Red (t = 0 s) to Blue (t = 1.005 s), 
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 from s2motion.constants import (
     CENTROID_UNCERTAINTY_PX,
@@ -61,6 +62,7 @@ class MeasurementResult:
     expected_green_fraction: float
     fraction_deviation: float
     runway_diff_deg: float | None = None
+    runway_proximity: Any | None = None
     aero: AerodynamicResult | None = None
 
     def summary(self) -> str:
@@ -82,17 +84,25 @@ class MeasurementResult:
         if self.runway_diff_deg is not None:
             lines.append(f"  - Runway axis difference:   {self.runway_diff_deg:.1f} deg")
 
+        if self.runway_proximity is not None:
+            lines.extend(
+                [
+                    "------------------------------------------------------------",
+                    self.runway_proximity.summary(),
+                ]
+            )
+
         if self.aero is not None:
             obs = self.aero.weather
             lines.extend(
                 [
                     "------------------------------------------------------------",
-                    "Aeronautical & Weather Telemetry (Open-Meteo):",
+                    "Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):",
                     f"  - Surface Weather:  {obs.temperature_c:.1f} °C | {obs.surface_pressure_hpa:.1f} hPa | Wind {obs.wind_speed_kmh:.1f} km/h ({obs.wind_speed_knots:.1f} kt) from {obs.wind_direction_deg:.0f}°",
                     f"  - Wind Components:  Headwind: {self.aero.headwind_mps * 3.6:+.1f} km/h ({self.aero.headwind_mps * 1.94384:+.1f} kt) | Crosswind: {self.aero.crosswind_mps * 3.6:+.1f} km/h",
                     f"  - Air Density:      Density Altitude: {self.aero.density_altitude_ft:.0f} ft ({self.aero.density_delta_ft:+.0f} ft vs field elevation)",
                     f"  - True Airspeed:    TAS: {self.aero.true_airspeed_kmh:.0f} km/h [{self.aero.true_airspeed_knots:.0f} kt] (Ground Speed: {self.speed_kmh:.0f} km/h)",
-                    f"  - Wind Alignment:   {'Favorable headwind' if self.aero.is_favorable_headwind else 'Tailwind component present'}",
+                    "  - Note:             Surface wind does not imply physical causality for aircraft ground speed.",
                 ]
             )
 
@@ -109,6 +119,7 @@ def calculate_motion(
     delta_t_rel_uncertainty: float = DELTA_T_RELATIVE_UNCERTAINTY,
     centroid_uncertainty_px: float = CENTROID_UNCERTAINTY_PX,
     runway_heading_deg: float | None = None,
+    runway_proximity: Any | None = None,
     aero: AerodynamicResult | None = None,
 ) -> MeasurementResult:
     """Calculate displacement, heading, speed and coherence metrics from Red to Blue.
@@ -131,6 +142,8 @@ def calculate_motion(
         delta_t_rel_uncertainty: Relative variation in delta t (default: 0.02 = +/-2%).
         centroid_uncertainty_px: Subpixel localization uncertainty per endpoint (default: 0.5 px).
         runway_heading_deg: Optional runway heading for alignment test.
+        runway_proximity: Optional RunwayProximityResult object.
+        aero: Optional AerodynamicResult object.
 
     Returns:
         MeasurementResult containing all computed values and bounds.
@@ -199,11 +212,15 @@ def calculate_motion(
         fraction_deviation = 0.0
 
     # Runway alignment check
+    effective_runway_heading = runway_heading_deg
+    if effective_runway_heading is None and runway_proximity is not None:
+        effective_runway_heading = runway_proximity.runway_bearing_deg
+
     runway_diff_deg = None
-    if runway_heading_deg is not None:
-        # Runway axis is bidirectional (e.g. runway 12/30 is 120 deg or 300 deg)
+    if effective_runway_heading is not None:
+        # Runway axis is bidirectional (e.g. runway 12/30 is ~116.7 deg or ~296.7 deg)
         # Calculate acute angle between heading and the runway axis (0 to 90 deg)
-        axis_diff = abs((heading_deg - runway_heading_deg + 90.0) % 180.0 - 90.0)
+        axis_diff = abs((heading_deg - effective_runway_heading + 90.0) % 180.0 - 90.0)
         runway_diff_deg = axis_diff
 
     return MeasurementResult(
@@ -230,5 +247,6 @@ def calculate_motion(
         expected_green_fraction=EXPECTED_GREEN_RELATIVE_FRACTION,
         fraction_deviation=fraction_deviation,
         runway_diff_deg=runway_diff_deg,
+        runway_proximity=runway_proximity,
         aero=aero,
     )

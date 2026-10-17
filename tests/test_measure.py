@@ -64,18 +64,18 @@ def test_collinearity_and_green_relative_position() -> None:
 def test_runway_alignment() -> None:
     """Verify bidirectional runway axis differences."""
     # Runway 12/30 (axis 120 deg)
-    # Heading 120 deg (takeoff along runway 12):
+    # Heading 120 deg (aligned along runway 12):
     # dx_east = 10 * sin(120 deg), dy_north = 10 * cos(120 deg)
     # in raster: x = x0 + dx_east, y = y0 - dy_north
     h120_rad = math.radians(120.0)
-    res_takeoff12 = calculate_motion(
+    res_rwy12 = calculate_motion(
         red_centroid=(100.0, 100.0),
         blue_centroid=(100.0 + 10.0 * math.sin(h120_rad), 100.0 - 10.0 * math.cos(h120_rad)),
         runway_heading_deg=120.0,
     )
-    assert abs(res_takeoff12.heading_deg - 120.0) < 0.1
-    assert res_takeoff12.runway_diff_deg is not None
-    assert abs(res_takeoff12.runway_diff_deg - 0.0) < 0.1
+    assert abs(res_rwy12.heading_deg - 120.0) < 0.1
+    assert res_rwy12.runway_diff_deg is not None
+    assert abs(res_rwy12.runway_diff_deg - 0.0) < 0.1
 
     # Heading 125 deg -> diff with runway axis (120 deg) should be 5 deg
     h125_rad = math.radians(125.0)
@@ -126,7 +126,35 @@ def test_calculate_motion_with_aerodynamics() -> None:
     assert res.aero.density_altitude_ft > 1000.0
 
     summary_text = res.summary()
-    assert "Aeronautical & Weather Telemetry (Open-Meteo):" in summary_text
+    assert "Surface Weather Telemetry (Open-Meteo" in summary_text
     assert "Density Altitude:" in summary_text
     assert "TAS:" in summary_text
     assert "Wind Components:" in summary_text
+
+
+def test_calculate_motion_with_runway_proximity() -> None:
+    """Verify integration of RunwayProximityResult inside calculate_motion."""
+    from s2motion.constants import (
+        LEBB_RUNWAY_12_THR_WGS84,
+        LEBB_RUNWAY_30_THR_WGS84,
+    )
+    from s2motion.geo import calculate_runway_proximity
+
+    prox = calculate_runway_proximity(
+        obj_lon=-2.936874,
+        obj_lat=43.310770,
+        thr12_latlon=LEBB_RUNWAY_12_THR_WGS84,
+        thr30_latlon=LEBB_RUNWAY_30_THR_WGS84,
+    )
+    # Heading along runway axis ~116.7
+    h_rad = math.radians(116.73)
+    res = calculate_motion(
+        red_centroid=(100.0, 100.0),
+        blue_centroid=(100.0 + 10.0 * math.sin(h_rad), 100.0 - 10.0 * math.cos(h_rad)),
+        runway_proximity=prox,
+    )
+    assert res.runway_proximity is not None
+    assert abs(res.runway_diff_deg) < 0.1
+    summary = res.summary()
+    assert "Runway Position" in summary
+    assert "APPROACH CORRIDOR" in summary
