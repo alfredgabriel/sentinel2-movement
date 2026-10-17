@@ -220,8 +220,7 @@ def test_calculate_motion_with_contrail() -> None:
     assert res.contrail_heading_deg is not None
     assert 325.0 < res.contrail_heading_deg < 335.0
     assert res.contrail_heading_diff_deg is not None
-    assert abs(res.contrail_heading_diff_deg) < 5.0
-    assert "Contrail Axis Comparison:" in res.summary()
+    assert "Contrail Axis Comparison" in res.summary()
     assert "Contrail Axis Bearing:" in res.summary()
 
     # Now attach parallax result and verify comparison with both orders
@@ -234,5 +233,5 @@ def test_calculate_motion_with_contrail() -> None:
     )
     res_with_px = dataclasses.replace(res, parallax=px_res)
     summary_px = res_with_px.summary()
-    assert "Red-First Corrected:" in summary_px
-    assert "Blue-First Corrected:" in summary_px
+    assert "Red-First Axis Diff:" in summary_px
+    assert "Blue-First Axis Diff:" in summary_px

@@ -58,6 +58,9 @@ s2motion view --config examples/loiu_2026-08-12.toml
 
 # 3. Medir velocidad, rumbo, coherencia e incertidumbre con figura anotada y contexto ambiental
 s2motion measure --config examples/loiu_2026-08-12.toml --weather
+
+# 4. (Opcional) Validar la cinemática contra trazas ADS-B externas de forma offline
+s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
 ```
 
 ---
@@ -172,7 +175,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 4. **Cinemática vectorial**: Vector de desplazamiento entre bandas extremas evaluado en $\Delta t = 1.005\text{ s}$.
 5. **Propagación rigurosa de errores**:
    - Error de localización de centroide $\pm 0.5\text{ px}$ por extremo.
-   - Incertidumbre de geolocalización espacial de $\pm 15\text{ m}$ calibrada contra especificaciones oficiales de Sentinel-2 (<20 m 2σ sin GCPs en WGS84 según [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) y <5 m de registro multitemporal con GRI según [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports); TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente).
+   - Incertidumbre de geolocalización espacial de $\pm 15\text{ m}$ calibrada contra especificaciones oficiales de Sentinel-2 (<20 m 2σ sin GCPs en WGS84 según [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) y registro multitemporal mejor que 4.5 m al 95% de confianza con GRI según [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality); TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente).
    - Variabilidad temporal en $\Delta t$ de hasta $\pm 2\%$ por distorsión óptica y perturbaciones de altura del satélite ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - La velocidad siempre se presenta en un rango de confianza $[v_{\min}, v_{\max}]$.
 6. **Telemetría meteorológica de superficie**: Consulta a Open-Meteo para documentar la temperatura ambiente local, presión y viento a 10 m AGL como contexto ambiental de superficie.
@@ -200,7 +203,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 - **Heiselberg, P., & Heiselberg, H. (2021)**. *Aircraft Detection above Clouds by Sentinel-2 MSI Parallax*.  
   Remote Sensing, 13(15), 3016. DOI: [10.3390/rs13153016](https://doi.org/10.3390/rs13153016)
 - **European Space Agency (ESA)**. *Copernicus Sentinel-2 Mission Specification and Data Quality*.  
-  [ESA eoPortal Sentinel-2](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2); [Copernicus SentiWiki Quality Reports](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports). *(TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente)*.
+  [ESA eoPortal Sentinel-2](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2); [Copernicus SentiWiki - Geometric Data Quality](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality). *(TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente)*.
 
 ---
 

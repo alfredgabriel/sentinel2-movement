@@ -90,11 +90,11 @@ class MeasurementResult:
         ]
         if self.contrail_heading_deg is not None:
             lines.append("------------------------------------------------------------")
-            lines.append("Contrail Axis Comparison:")
+            lines.append("Contrail Axis Comparison (modulo 180° axis alignment):")
             lines.append(f"  - Contrail Axis Bearing:    {self.contrail_heading_deg:.1f}°")
             if self.contrail_heading_diff_deg is not None:
                 lines.append(
-                    f"  - Apparent Heading Diff:    {self.contrail_heading_diff_deg:+.1f}° (apparent: {self.heading_deg:.1f}°)"
+                    f"  - Apparent Axis Diff:       {self.contrail_heading_diff_deg:+.1f}° (eje estela - rumbo aparente {self.heading_deg:.1f}°)"
                 )
             if self.parallax is not None:
                 from s2motion.parallax import correct_parallax
@@ -119,17 +119,18 @@ class MeasurementResult:
                     band_order="blue-first",
                     delta_t_s=self.delta_t_s,
                 )
+                # Consistent convention: contrail axis minus corrected heading, modulo 180 in [-90, +90]
                 diff_red = (
-                    (px_red.corrected_heading_deg - self.contrail_heading_deg + 180.0) % 360.0
-                ) - 180.0
+                    (self.contrail_heading_deg - px_red.corrected_heading_deg + 90.0) % 180.0
+                ) - 90.0
                 diff_blue = (
-                    (px_blue.corrected_heading_deg - self.contrail_heading_deg + 180.0) % 360.0
-                ) - 180.0
+                    (self.contrail_heading_deg - px_blue.corrected_heading_deg + 90.0) % 180.0
+                ) - 90.0
                 lines.append(
-                    f"  - Red-First Corrected:      {px_red.corrected_heading_deg:.1f}° (diff vs contrail: {diff_red:+.1f}°)"
+                    f"  - Red-First Axis Diff:      {diff_red:+.1f}° (eje estela - corregido {px_red.corrected_heading_deg:.1f}°)"
                 )
                 lines.append(
-                    f"  - Blue-First Corrected:     {px_blue.corrected_heading_deg:.1f}° (diff vs contrail: {diff_blue:+.1f}°)"
+                    f"  - Blue-First Axis Diff:     {diff_blue:+.1f}° (eje estela - corregido {px_blue.corrected_heading_deg:.1f}°)"
                 )
         if self.runway_diff_deg is not None:
             lines.append(
@@ -309,7 +310,8 @@ def calculate_motion(
         c_dist = math.hypot(c_dx_east, c_dy_north)
         if c_dist > 1e-6:
             contrail_heading_deg = (math.degrees(math.atan2(c_dx_east, c_dy_north)) + 360.0) % 360.0
-            contrail_heading_diff_deg = (heading_deg - contrail_heading_deg + 180.0) % 360.0 - 180.0
+            # Difference: contrail axis minus heading, modulo 180 in [-90, +90]
+            contrail_heading_diff_deg = ((contrail_heading_deg - heading_deg + 90.0) % 180.0) - 90.0
 
     return MeasurementResult(
         dx_px=dx_px,

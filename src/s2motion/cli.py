@@ -319,6 +319,115 @@ def cmd_measure(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Validate satellite kinematics against external ADS-B state vectors."""
+    from s2motion.adsb import (
+        ADSBValidationCriteria,
+        load_adsb_records,
+        parse_timestamp,
+        validate_adsb,
+    )
+
+    adsb_file = Path(args.adsb)
+    if not adsb_file.exists():
+        logger.error(f"ADS-B trajectory file not found: {adsb_file}")
+        return 1
+
+    # Default parameters
+    target_lat = getattr(args, "target_lat", None)
+    target_lon = getattr(args, "target_lon", None)
+    sensing_time = getattr(args, "sensing_time", None)
+    heading_deg = getattr(args, "heading", None)
+    speed_kmh = getattr(args, "speed", None)
+    speed_bounds = getattr(args, "speed_bounds", None)
+    speed_min_kmh = speed_bounds[0] if speed_bounds else None
+    speed_max_kmh = speed_bounds[1] if speed_bounds else None
+    max_dist_m = getattr(args, "max_dist", None)
+    time_window_s = getattr(args, "time_window", 60.0)
+    heading_tol = getattr(args, "heading_tolerance", None)
+    app_speed_mps = getattr(args, "apparent_speed_mps", None)
+    app_hdg_deg = getattr(args, "apparent_heading", None)
+
+    # Load from config if available
+    if args.config:
+        cfg = load_toml_config(Path(args.config))
+        val_cfg = cfg.get("validation", {})
+        if target_lat is None:
+            target_lat = val_cfg.get("target_lat")
+        if target_lon is None:
+            target_lon = val_cfg.get("target_lon")
+        if sensing_time is None:
+            sensing_time = val_cfg.get("sensing_time")
+        if heading_deg is None:
+            heading_deg = val_cfg.get("heading_deg")
+        if speed_kmh is None:
+            speed_kmh = val_cfg.get("speed_kmh")
+        if speed_min_kmh is None:
+            speed_min_kmh = val_cfg.get("speed_min_kmh")
+        if speed_max_kmh is None:
+            speed_max_kmh = val_cfg.get("speed_max_kmh")
+        if max_dist_m is None:
+            max_dist_m = val_cfg.get("max_distance_m", 1000.0)
+        if time_window_s == 60.0:
+            time_window_s = val_cfg.get("time_window_s", 60.0)
+        if heading_tol is None:
+            heading_tol = val_cfg.get("heading_tolerance_deg", 14.0)
+        if app_speed_mps is None:
+            app_speed_mps = val_cfg.get("apparent_speed_mps")
+        if app_hdg_deg is None:
+            app_hdg_deg = val_cfg.get("apparent_heading_deg")
+
+    if target_lat is None or target_lon is None:
+        logger.error(
+            "Target coordinates (target_lat, target_lon) must be specified via --config or flags"
+        )
+        return 1
+
+    if sensing_time is None:
+        logger.error("Sensing time must be specified via --config or --sensing-time")
+        return 1
+
+    if heading_deg is None or speed_kmh is None:
+        logger.error("Measured kinematics (heading, speed) must be specified via --config or flags")
+        return 1
+
+    if speed_min_kmh is None:
+        speed_min_kmh = speed_kmh * 0.85
+    if speed_max_kmh is None:
+        speed_max_kmh = speed_kmh * 1.15
+    if max_dist_m is None:
+        max_dist_m = 1000.0
+    if heading_tol is None:
+        heading_tol = 14.0
+
+    sensing_ts = parse_timestamp(sensing_time)
+    criteria = ADSBValidationCriteria(
+        max_distance_m=float(max_dist_m),
+        time_window_s=float(time_window_s),
+        heading_tolerance_deg=float(heading_tol),
+    )
+
+    fmt_hint = getattr(args, "format", "auto")
+    vectors = load_adsb_records(adsb_file, format_hint=fmt_hint)
+
+    report = validate_adsb(
+        vectors=vectors,
+        target_lat=float(target_lat),
+        target_lon=float(target_lon),
+        sensing_timestamp=sensing_ts,
+        measured_heading_red_first=float(heading_deg),
+        speed_kmh_red_first=float(speed_kmh),
+        speed_min_kmh_red_first=float(speed_min_kmh),
+        speed_max_kmh_red_first=float(speed_max_kmh),
+        criteria=criteria,
+        apparent_speed_mps=float(app_speed_mps) if app_speed_mps is not None else None,
+        apparent_heading_deg=float(app_hdg_deg) if app_hdg_deg is not None else None,
+    )
+
+    print(report.summary())
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the command line parser with subcommands."""
     parser = argparse.ArgumentParser(
@@ -408,6 +517,52 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_measure.add_argument("--out", help="Path to save annotated output figure")
 
+    # Subcommand: validate
+    p_val = subparsers.add_parser(
+        "validate", help="Validate kinematics against external ADS-B state vectors"
+    )
+    p_val.add_argument(
+        "--adsb",
+        required=True,
+        help="Path to ADS-B trajectory file (OpenSky CSV or ADS-B Exchange JSON)",
+    )
+    p_val.add_argument("--config", help="Path to scenario .toml configuration file")
+    p_val.add_argument(
+        "--format", choices=["auto", "opensky", "adsbx"], default="auto", help="File format hint"
+    )
+    p_val.add_argument("--target-lat", type=float, help="Target georeferenced latitude (degrees)")
+    p_val.add_argument("--target-lon", type=float, help="Target georeferenced longitude (degrees)")
+    p_val.add_argument(
+        "--sensing-time", help="Satellite product sensing time (ISO string or epoch seconds)"
+    )
+    p_val.add_argument(
+        "--heading", type=float, help="Measured heading in degrees clockwise from North"
+    )
+    p_val.add_argument("--speed", type=float, help="Measured ground speed in km/h")
+    p_val.add_argument(
+        "--speed-bounds",
+        nargs=2,
+        type=float,
+        metavar=("MIN_KMH", "MAX_KMH"),
+        help="Speed confidence interval [MIN, MAX] in km/h",
+    )
+    p_val.add_argument(
+        "--max-dist",
+        type=float,
+        help="Maximum distance threshold in meters (default: 1000 m for approach, 2000 m for cruise)",
+    )
+    p_val.add_argument(
+        "--time-window",
+        type=float,
+        default=60.0,
+        help="Matching temporal window in seconds (default: 60.0 s)",
+    )
+    p_val.add_argument(
+        "--heading-tolerance",
+        type=float,
+        help="Heading 2-sigma tolerance in degrees (default: 14.0 deg)",
+    )
+
     return parser
 
 
@@ -427,6 +582,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_view(args)
     elif args.subcommand == "measure":
         return cmd_measure(args)
+    elif args.subcommand == "validate":
+        return cmd_validate(args)
     else:
         parser.print_help()
         return 1

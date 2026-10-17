@@ -30,3 +30,19 @@ figure = "docs/img/loiu_2026-06-21_measured.png"
 altitude_m = 10500.0
 altitude_min_m = 9000.0
 altitude_max_m = 12000.0
+
+[validation]
+# Georeferenced WGS84 target coordinates (Red centroid)
+target_lat = 43.302306
+target_lon = -2.918740
+sensing_time = "2026-06-21T11:09:40Z"
+max_distance_m = 2000.0  # Cruising en-route aircraft
+time_window_s = 60.0
+heading_tolerance_deg = 3.6  # 2-sigma (~2 * 1.8 deg)
+heading_deg = 316.4
+speed_kmh = 932.0
+speed_min_kmh = 907.0
+speed_max_kmh = 960.0
+# Apparent parameters for parallax recalculation with true ADS-B altitude:
+apparent_speed_mps = 319.81
+apparent_heading_deg = 330.41

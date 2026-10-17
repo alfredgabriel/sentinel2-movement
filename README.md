@@ -89,6 +89,9 @@ s2motion view --config examples/loiu_2026-08-12.toml
 
 # 3. Detect subpixel centroids, calculate velocity, and export publication figure with weather telemetry
 s2motion measure --config examples/loiu_2026-08-12.toml --weather
+
+# 4. (Optional) Validate kinematics against external ADS-B state vectors offline
+s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
 ```
 
 ---
@@ -203,7 +206,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 4. **Vector Kinematics**: Computes displacement from Red ($t=0.000\text{ s}$) to Blue ($t=1.005\text{ s}$), heading, and ground velocity.
 5. **Rigorous Uncertainty Propagation**:
    - Accounts for $\pm 0.5\text{ px}$ subpixel localization error per endpoint.
-   - Spatial positioning uncertainty of $\pm 15\text{ m}$ calibrated against official ESA Sentinel-2 specifications (<20 m 2σ without GCPs on WGS84 per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) and <5 m multi-temporal registration per [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports); TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001).
+   - Spatial positioning uncertainty of $\pm 15\text{ m}$ calibrated against official ESA Sentinel-2 specifications (<20 m 2σ without GCPs on WGS84 per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) and multi-temporal co-registration better than 4.5 m at 95% confidence with GRI per [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality); TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001).
    - Incorporates $\pm 2\%$ timing variation in $\Delta t$ resulting from optical distortion and satellite altitude perturbations ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - Always reports velocity as an explicit interval $[v_{\min}, v_{\max}]$, never as an isolated point value.
 6. **Atmospheric Environmental Telemetry**: Queries Open-Meteo reanalysis to document local surface ambient temperature, pressure, and 10 m AGL wind speed/direction for environmental context.
@@ -228,7 +231,7 @@ To ensure scientific honesty and transparency, the following physical and sensor
 
 Planned future extensions (not implemented in v0.1):
 - [ ] **Automated Runway Swath Scanner**: Unsupervised detection of bright multi-chromatic anomalies along runway corridors with automated CSV reporting.
-- [ ] **ADS-B Telemetry Integration**: Automated validation against historical OpenSky Network ADS-B trajectories.
+- [x] **ADS-B Telemetry Integration**: Offline validation module against OpenSky CSV and ADS-B Exchange JSON trajectories (see [docs/validation.md](docs/validation.md)).
 - [ ] **Maritime Port Detection**: Adapted subpixel phase correlation for container ships and ferries entering the Port of Bilbao (El Abra).
 - [ ] **20-Meter Band Expansion**: Inclusion of Red Edge (B8A) and Shortwave Infrared (B11, B12) detectors with their corresponding time lags.
 
@@ -247,7 +250,7 @@ Planned future extensions (not implemented in v0.1):
 - **Heiselberg, P., & Heiselberg, H. (2021)**. *Aircraft Detection above Clouds by Sentinel-2 MSI Parallax*.  
   Remote Sensing, 13(15), 3016. DOI: [10.3390/rs13153016](https://doi.org/10.3390/rs13153016)
 - **European Space Agency (ESA)**. *Copernicus Sentinel-2 Mission Specification and Data Quality*.  
-  [ESA eoPortal Sentinel-2](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2); [Copernicus SentiWiki Quality Reports](https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports). *(TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001 once officially published)*.
+  [ESA eoPortal Sentinel-2](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2); [Copernicus SentiWiki - Geometric Data Quality](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality). *(TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001 once officially published)*.
 
 ---
 

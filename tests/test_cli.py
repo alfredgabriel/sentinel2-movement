@@ -84,3 +84,26 @@ def test_load_toml_config_not_found() -> None:
     """Verify error on non-existent config file."""
     with pytest.raises(FileNotFoundError):
         load_toml_config(Path("non_existent_config.toml"))
+
+
+def test_cli_parser_validate() -> None:
+    """Verify validate subcommand parser options."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "validate",
+            "--adsb",
+            "tracks.csv",
+            "--config",
+            "examples/loiu_2026-08-12.toml",
+            "--time-window",
+            "45.0",
+            "--max-dist",
+            "1500.0",
+        ]
+    )
+    assert args.subcommand == "validate"
+    assert args.adsb == "tracks.csv"
+    assert args.config == "examples/loiu_2026-08-12.toml"
+    assert args.time_window == 45.0
+    assert args.max_dist == 1500.0

@@ -243,11 +243,12 @@ CITATIONS: Final[dict[str, dict[str, str]]] = {
         "authors": "European Space Agency (ESA)",
         "title": "Copernicus Sentinel-2 Mission Specification and Data Quality",
         "portal_url": "https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2",
-        "quality_reports_url": "https://sentiwiki.copernicus.eu/web/sentinel-2-quality-reports",
+        "geometric_quality_url": "https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality",
         "year": "2023",
         "note": (
-            "Specifies absolute geolocation requirement < 20 m (at 2-sigma / 95% confidence level) "
-            "without GCPs on WGS84, and multi-temporal co-registration < 5 m with the Global Reference Image (GRI). "
+            "Specifies absolute geolocation requirement < 20 m (at 2-sigma / 95.5% confidence level) "
+            "without GCPs on WGS84, and multi-temporal co-registration better than 4.5 m at 95% confidence "
+            "with the Global Reference Image (GRI). "
             "TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001."
         ),
     },
