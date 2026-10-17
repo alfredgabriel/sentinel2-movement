@@ -581,7 +581,7 @@ def create_social_card(
     # Bilingual texts
     t_es = {
         "badge": "CINEMÁTICA POR PARALAJE · SENTINEL-2",
-        "case1_title": "Aeronave en Aproximación Final",
+        "case1_title": "Posible aproximación (hipótesis)",
         "case1_sub": "Aeropuerto de Bilbao (LEBB/BIO) · Pista 12 · 2026-08-12",
         "case2_title": "Aeronave en Crucero a Alta Cota",
         "case2_sub": "Nivel de Vuelo FL350 (~10.5 km AGL) · 2026-06-21",
@@ -594,7 +594,7 @@ def create_social_card(
     }
     t_en = {
         "badge": "SENTINEL-2 PARALLAX KINEMATICS",
-        "case1_title": "Aircraft on Final Approach",
+        "case1_title": "Possible approach (hypothesis)",
         "case1_sub": "Bilbao Airport (LEBB/BIO) · Runway 12 · 2026-08-12",
         "case2_title": "High-Altitude Aircraft in Cruise",
         "case2_sub": "Flight Level FL350 (~10.5 km AGL) · 2026-06-21",

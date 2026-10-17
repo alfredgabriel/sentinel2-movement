@@ -74,7 +74,7 @@ s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
     - **THR 12 (NW)**: `43°18'22.85"N, 002°55'29.78"W` (`43.306347°N, -2.924939°W`)
     - **THR 30 (SE)**: `43°17'45.91"N, 002°53'49.02"W` (`43.296086°N, -2.896950°W`)
     - Eje geodésico calculado entre umbrales: **$116.7^\circ$** (la designación 12 está redondeada a $120^\circ$).
-  - **Posición georreferenciada**: El blanco detectado (centroide de la banda Roja) se sitúa en **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$** (incertidumbre de posición estimada $\approx \pm 15\text{ m}$ por tamaño de píxel de 10 m, geolocalización de Sentinel-2 y desplazamiento del objeto durante el barrido), a aproximadamente **$1085 \pm 15\text{ m}$ al noroeste del umbral 12** sobre el eje prolongado ($-1085 \pm 15\text{ m}$ a lo largo de la prolongación) y a **$5.0 \pm 15.0\text{ m}$ de la línea central prolongada**.
+  - **Posición georreferenciada**: El blanco detectado (centroide de la banda Roja) se sitúa en **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$** (incertidumbre de posición absoluta estimada $\approx \pm 25\text{ m}$ a $\sim 2\sigma$ considerando la especificación de geolocalización absoluta global sin GCP de $20\text{ m}$ a $2\sigma$ per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2), la resolución de $10\text{ m/px}$ y el avance durante el barrido), a aproximadamente **$1085 \pm 25\text{ m}$ al noroeste del umbral 12** sobre el eje prolongado ($-1085 \pm 25\text{ m}$ a lo largo de la prolongación) y a **$5.0 \pm 25.0\text{ m}$ de la línea central prolongada**.
   - **Estado**: La aeronave no está sobre la superficie de la pista (`is_on_runway: False`), sino en el pasillo de aproximación con rumbo **$117.4^\circ \pm 7.0^\circ$**, con una diferencia de rumbo de **$0.7^\circ (\pm 7.0^\circ)$** respecto al eje geodésico de la pista 12.
 
 #### Vista general del recorte completo (Aeropuerto de Bilbao / Loiu)
@@ -105,11 +105,11 @@ Coherence Diagnostics:
   - Runway axis difference:   0.7 deg (+/-7.0 deg)
 ------------------------------------------------------------
 Runway Position (LEBB Runway 12/30, axis 116.7°):
-  - Reference Centroid:     Red band (estimated spatial uncertainty: ±15 m)
-  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874° (±15 m)
-  - Proximity to THR 12:    1085 ± 15 m (along extended axis: -1085 ± 15 m)
-  - Centerline Offset:      5.0 ± 15.0 m
-  - Status:                 APPROACH CORRIDOR (1085 ± 15 m before THR 12) [on runway surface: False]
+  - Reference Centroid:     Red band (estimated spatial uncertainty: ±25 m, ~2σ)
+  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874° (±25 m)
+  - Proximity to THR 12:    1085 ± 25 m (along extended axis: -1085 ± 25 m)
+  - Centerline Offset:      5.0 ± 25.0 m
+  - Status:                 APPROACH CORRIDOR (1085 ± 25 m before THR 12) [on runway surface: False]
 ------------------------------------------------------------
 Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
   - Surface Weather:  28.9 °C | 1014.4 hPa | Wind 10.6 km/h (5.7 kt) from 14°
@@ -187,7 +187,9 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 4. **Cinemática vectorial**: Vector de desplazamiento entre bandas extremas evaluado en $\Delta t = 1.005\text{ s}$.
 5. **Propagación rigurosa de errores**:
    - Error de localización de centroide $\pm 0.5\text{ px}$ por extremo.
-   - Incertidumbre de geolocalización espacial de $\pm 15\text{ m}$ calibrada contra especificaciones oficiales de Sentinel-2 (<20 m 2σ sin GCPs en WGS84 según [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) y registro multitemporal mejor que 4.5 m al 95% de confianza con GRI según [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality); TODO: verificar URLs públicas directas para los códigos internos de ESA S2-RS-ESA-SY-0001 y ESA-EOPG-EOQC-RP-0001 una vez publicados oficialmente).
+   - **Incertidumbre de geolocalización espacial absoluta**: para evaluar la posición absoluta frente a coordenadas aeronáuticas externas (umbrales oficiales AIP de ENAIRE), la especificación de referencia es la de geolocalización absoluta global sin GCP (<20 m a 2σ / 95.5% en WGS84 per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2)), no la de coregistración multitemporal de 4.5 m (que aplica exclusivamente a la coherencia relativa entre escenas sucesivas refinadas con GRI per [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality)). Sumando cuadráticamente la geolocalización absoluta (20 m a 2σ), la incertidumbre de centroide subpíxel (±0.5 px ⟹ 10 m a 2σ) y el avance del blanco durante la adquisición (~10 m a 2σ):
+     $$\sigma_{\text{pos, abs}} = \sqrt{20^2 + 10^2 + 10^2} = \sqrt{600} \approx 24.5\text{ m} \approx \pm 25\text{ m} \text{ (a } \sim 2\sigma \text{ / } 95\%)$$
+     Por ello, la posición absoluta respecto al umbral y eje de pista se reporta como $1085 \pm 25\text{ m}$ y $5.0 \pm 25.0\text{ m}$ a $\sim 2\sigma$.
    - Variabilidad temporal en $\Delta t$ de hasta $\pm 2\%$ por distorsión óptica y perturbaciones de altura del satélite ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - La velocidad siempre se presenta en un rango de confianza $[v_{\min}, v_{\max}]$.
 6. **Telemetría meteorológica de superficie**: Consulta a Open-Meteo para documentar la temperatura ambiente local, presión y viento a 10 m AGL como contexto ambiental de superficie.
@@ -208,7 +210,7 @@ python scripts/generate_figures.py --lang en
 ```
 
 Las versiones sociales 4:5 (1080x1350 px) en modo oscuro para divulgación en LinkedIn/Twitter se guardan en `docs/img/social/`:
-- **Aproximación Caso 1**: `docs/img/social/case1_approach_4x5.png` (Velocidad: $295 \pm 42\text{ km/h}$, Rumbo: $117.4^\circ \pm 7.0^\circ$, Desviación del eje: $5.0 \pm 15.0\text{ m}$, aviso: *"sin validar con datos externos"*).
+- **Posible aproximación Caso 1**: `docs/img/social/case1_approach_4x5.png` (Velocidad: $295 \pm 42\text{ km/h}$, Rumbo: $117.4^\circ \pm 7.0^\circ$, Desviación del eje: $5.0 \pm 25.0\text{ m}$, aviso: *"sin validar con datos externos"*).
 - **Crucero Caso 2**: `docs/img/social/case2_cruise_4x5.png` (Velocidad corregida: $932\text{ km/h}$ $[907 - 960]$, Rumbo corregido: $316.4^\circ \pm 6.1^\circ$, aparente vs corregida, aviso: *"sin validar con datos externos"*).
 
 ---
@@ -221,15 +223,17 @@ Para garantizar el máximo rigor científico y transparencia, los componentes de
 | :--- | :--- | :--- |
 | **Tiempos inter-banda ($0.000, 0.478, 1.005\text{ s}$)** | **Respaldada por literatura** | Disposición física del plano focal del sensor MSI y calibraciones temporales empíricas ([Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021); [Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)). |
 | **Colinealidad subpíxel y posición de la banda verde** | **Coherente internamente** | Desviaciones observadas $\le 0.54\text{ px}$ y desfase temporal $\le 0.01$ coherentes con movimiento rectilíneo uniforme entre detectores. |
-| **Alineación geométrica con pista 12 de Bilbao** | **Coherente internamente** | Rumbo derivado ($117.4^\circ \pm 7.0^\circ$) coincidente a $0.7^\circ$ con el eje geodésico calculado de umbrales oficiales de [ENAIRE AIP](https://aip.enaire.es/AIP/) ($116.7^\circ$). |
-| **Modelo estereoscópico de paralaje pushbroom** | **Respaldada por literatura** | Modelo de paralaje hacia delante $\vec{v}_{\text{real}} = (1 - h/H)\vec{v}_{\text{aparente}} + (h/H)\vec{v}_{\text{traza}}$ derivado de la geometría del sensor pushbroom ([Heiselberg & Heiselberg, 2021](https://doi.org/10.3390/rs13153016); [Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021)). |
-| **Orden de adquisición de bandas (`red-first`)** | **Coherente internamente** | Velocidades subsónicas verosímiles en ambos casos; pendiente de confirmación con datos ADS-B externos. |
+| **Alineación geométrica con pista 12 de Bilbao** | **Coherente internamente** | Compatible dentro de la incertidumbre (±7°); la alineación es simétrica respecto al eje y no discrimina el orden de bandas. |
+| **Modelo estereoscópico de paralaje pushbroom** | **Respaldada por literatura** | Derivado de la geometría pushbroom; magnitud coherente con la literatura (Krauß 2021, Heiselberg & Heiselberg 2021); signo no validado de forma independiente. |
+| **Orden de adquisición de bandas (`red-first`)** | **Hipótesis no validada** | El argumento de plausibilidad solo aplica al caso 2 (velocidad corregida 932 vs 1386 km/h) y depende de la altura supuesta y del viento, que se desconoce; pendiente de ADS-B. |
 | **Correlación de vuelos reales Casos 1 y 2** | **Pendiente de contraste ADS-B** | Criterios fijados a priori en [docs/validation.md](docs/validation.md); pendiente de contraste con registros ADS-B / Modo-S independientes. |
 
 ---
 
 ## 8. Limitaciones físicas y del sensor
 
+- **Selección manual de candidatos**: Las detecciones se seleccionaron manualmente entre candidatos observados en la imagen, sin estimación de la tasa de falsos positivos en barridos sistemáticos o no supervisados.
+- **Colinealidad como coherencia interna**: La colinealidad subpíxel y la posición intermedia de la banda verde son diagnósticos de coherencia interna del modelo de desplazamiento lineal uniforme entre detectores, no una validación empírica independiente.
 - **Paralaje por altura**: La velocidad solo es cuantitativamente exacta sin correcciones para objetos en superficie o muy baja cota. Para aeronaves en crucero se requiere modelar la altitud del blanco.
 - **Sin identificación de vuelo**: No se identifica la matrícula o vuelo sin telemetría ADS-B cruzada.
 - **Resolución espacial**: A $10\text{ m/px}$, una aeronave ocupa 3–4 píxeles (se mide la dispersión espectral, no la silueta).

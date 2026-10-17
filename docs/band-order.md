@@ -58,7 +58,7 @@ Applying each band order convention to the observed centroids:
    - Vector inverts: $dx \rightarrow -dx, dy \rightarrow -dy$.
    - Heading rotates $180^\circ$: $117.4^\circ + 180^\circ =$ **$297.4^\circ \pm 7.0^\circ$** (towards $297.4^\circ$, Northwest).
    - Acute angle with Runway 30 axis: $|297.4^\circ - 296.7^\circ| =$ **$0.7^\circ$**.
-   - Flight scenario: Aircraft heading Northwest, climbing out along the extended centerline after takeoff from Runway 30 (**initial climb after departure from Runway 30**).
+   - Flight scenario: Aircraft heading Northwest, climbing out along the extended centerline after departure from Runway 30 (**initial climb after departure from Runway 30**).
 
 > [!IMPORTANT]
 > **Geometric runway alignment is completely symmetric modulo $180^\circ$.**

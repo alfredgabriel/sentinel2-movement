@@ -35,7 +35,7 @@ class RunwayProximityResult:
     cross_axis_m: float  # Perpendicular distance to extended centerline
     is_on_runway: bool
     centroid_name: str = "Red"
-    uncertainty_m: float = 15.0
+    uncertainty_m: float = 25.0
 
     def summary(self) -> str:
         """Format a human-readable summary of runway proximity with explicit uncertainty."""
@@ -48,7 +48,7 @@ class RunwayProximityResult:
         )
         return (
             f"Runway Position ({self.runway_name}, axis {self.runway_bearing_deg:.1f}°):\n"
-            f"  - Reference Centroid:     {self.centroid_name} band (estimated spatial uncertainty: ±{self.uncertainty_m:.0f} m)\n"
+            f"  - Reference Centroid:     {self.centroid_name} band (estimated spatial uncertainty: ±{self.uncertainty_m:.0f} m, ~2σ)\n"
             f"  - Geodetic Coordinates:   lat {self.object_lat:.6f}°, lon {self.object_lon:.6f}° (±{self.uncertainty_m:.0f} m)\n"
             f"  - Proximity to THR 12:    {self.dist_thr12_m:.0f} ± {self.uncertainty_m:.0f} m (along extended axis: {self.along_axis_m:+.0f} ± {self.uncertainty_m:.0f} m)\n"
             f"  - Centerline Offset:      {self.cross_axis_m:.1f} ± {self.uncertainty_m:.0f} m\n"
@@ -119,7 +119,7 @@ def calculate_runway_proximity(
     runway_name: str = "LEBB Runway 12/30",
     projected_crs: str = "EPSG:32630",
     centroid_name: str = "Red",
-    uncertainty_m: float = 15.0,
+    uncertainty_m: float = 25.0,
 ) -> RunwayProximityResult:
     """Calculate spatial proximity of an object to a runway and its extended centerline.
 

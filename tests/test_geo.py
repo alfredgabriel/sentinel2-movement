@@ -90,7 +90,7 @@ def test_calculate_runway_proximity_on_and_off_runway() -> None:
     summary = res_approach.summary()
     assert "APPROACH CORRIDOR" in summary
     assert "Reference Centroid:" in summary
-    assert "± 15 m" in summary
+    assert "± 25 m" in summary
     assert "on runway surface: False" in summary
 
 

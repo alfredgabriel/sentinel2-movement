@@ -105,7 +105,7 @@ s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
     - **THR 12 (NW)**: `43°18'22.85"N, 002°55'29.78"W` (`43.306347°N, -2.924939°W`)
     - **THR 30 (SE)**: `43°17'45.91"N, 002°53'49.02"W` (`43.296086°N, -2.896950°W`)
     - True forward geodetic axis calculated from thresholds: **$116.7^\circ$** (the nominal designation '12' is rounded to $120^\circ$).
-  - **Georeferenced Position**: The detected aircraft (Red centroid) is located at **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$** (estimated position uncertainty $\approx \pm 15\text{ m}$ due to 10 m pixel size, Sentinel-2 geolocation accuracy, and motion during line scan), approximately **$1085 \pm 15\text{ m}$ northwest of Threshold 12** along the extended runway centerline ($-1085 \pm 15\text{ m}$ along track) and **$5.0 \pm 15.0\text{ m}$ off the extended centerline**.
+  - **Georeferenced Position**: The detected aircraft (Red centroid) is located at **$43.310770^\circ\text{N}, -2.936874^\circ\text{W}$** (estimated absolute position uncertainty $\approx \pm 25\text{ m}$ at $\sim 2\sigma$ considering the global absolute geolocation specification without GCPs of $20\text{ m}$ at $2\sigma$ per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2), $10\text{ m/px}$ resolution, and motion during the scan), approximately **$1085 \pm 25\text{ m}$ northwest of Threshold 12** along the extended runway centerline ($-1085 \pm 25\text{ m}$ along track) and **$5.0 \pm 25.0\text{ m}$ off the extended centerline**.
   - **Status**: The aircraft is not on the runway surface (`is_on_runway: False`), but positioned in the straight-in approach corridor with heading **$117.4^\circ \pm 7.0^\circ$**, differing by **$0.7^\circ (\pm 7.0^\circ)$** from the runway 12 geodetic axis.
 
 #### Full Scene Overview (Uncropped Crop of Bilbao Airport Area)
@@ -136,11 +136,11 @@ Coherence Diagnostics:
   - Runway axis difference:   0.7 deg (+/-7.0 deg)
 ------------------------------------------------------------
 Runway Position (LEBB Runway 12/30, axis 116.7°):
-  - Reference Centroid:     Red band (estimated spatial uncertainty: ±15 m)
-  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874° (±15 m)
-  - Proximity to THR 12:    1085 ± 15 m (along extended axis: -1085 ± 15 m)
-  - Centerline Offset:      5.0 ± 15.0 m
-  - Status:                 APPROACH CORRIDOR (1085 ± 15 m before THR 12) [on runway surface: False]
+  - Reference Centroid:     Red band (estimated spatial uncertainty: ±25 m, ~2σ)
+  - Geodetic Coordinates:   lat 43.310770°, lon -2.936874° (±25 m)
+  - Proximity to THR 12:    1085 ± 25 m (along extended axis: -1085 ± 25 m)
+  - Centerline Offset:      5.0 ± 25.0 m
+  - Status:                 APPROACH CORRIDOR (1085 ± 25 m before THR 12) [on runway surface: False]
 ------------------------------------------------------------
 Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
   - Surface Weather:  28.9 °C | 1014.4 hPa | Wind 10.6 km/h (5.7 kt) from 14°
@@ -218,7 +218,9 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 4. **Vector Kinematics**: Computes displacement from Red ($t=0.000\text{ s}$) to Blue ($t=1.005\text{ s}$), heading, and ground velocity.
 5. **Rigorous Uncertainty Propagation**:
    - Accounts for $\pm 0.5\text{ px}$ subpixel localization error per endpoint.
-   - Spatial positioning uncertainty of $\pm 15\text{ m}$ calibrated against official ESA Sentinel-2 specifications (<20 m 2σ without GCPs on WGS84 per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2) and multi-temporal co-registration better than 4.5 m at 95% confidence with GRI per [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality); TODO: verify direct permanent public URLs for ESA internal document codes S2-RS-ESA-SY-0001 and ESA-EOPG-EOQC-RP-0001).
+   - **Absolute Georeferenced Positioning Uncertainty**: When comparing georeferenced pixel coordinates against external absolute aeronautical cartography (official ENAIRE AIP threshold coordinates), the applicable specification is the global absolute geolocation accuracy without GCPs (<20 m at 2σ / 95.5% on WGS84 per [ESA eoPortal](https://earth.esa.int/eoportal/satellite-missions/c-missions/sentinel-2)), not the 4.5 m multi-temporal co-registration specification (which applies strictly to relative alignment between successive scenes refined with the GRI per [Copernicus SentiWiki](https://sentiwiki.copernicus.eu/web/s2-geometric-data-quality)). Adding in quadrature the absolute geolocation specification (20 m at 2σ), subpixel centroid uncertainty (±0.5 px ⟹ 10 m at 2σ), and target movement during line scanning (~10 m at 2σ):
+     $$\sigma_{\text{pos, abs}} = \sqrt{20^2 + 10^2 + 10^2} = \sqrt{600} \approx 24.5\text{ m} \approx \pm 25\text{ m} \text{ (at } \sim 2\sigma \text{ / } 95\%)$$
+     Consequently, absolute positions relative to the runway threshold and centerline are reported as $1085 \pm 25\text{ m}$ and $5.0 \pm 25.0\text{ m}$ at $\sim 2\sigma$.
    - Incorporates $\pm 2\%$ timing variation in $\Delta t$ resulting from optical distortion and satellite altitude perturbations ([Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)).
    - Always reports velocity as an explicit interval $[v_{\min}, v_{\max}]$, never as an isolated point value.
 6. **Atmospheric Environmental Telemetry**: Queries Open-Meteo reanalysis to document local surface ambient temperature, pressure, and 10 m AGL wind speed/direction for environmental context.
@@ -241,7 +243,7 @@ python scripts/generate_figures.py --lang en
 ```
 
 High-impact social media cards (1080x1350 px, 4:5 vertical) formatted for technical dissemination on LinkedIn/Twitter are exported to `docs/img/social/`:
-- **Approach Case 1**: `docs/img/social/case1_approach_4x5.png` (Speed: $295 \pm 42\text{ km/h}$, Heading: $117.4^\circ \pm 7.0^\circ$, Runway offset: $5.0 \pm 15.0\text{ m}$, disclaimer: *"sin validar con datos externos"*).
+- **Possible Approach Case 1**: `docs/img/social/case1_approach_4x5.png` (Speed: $295 \pm 42\text{ km/h}$, Heading: $117.4^\circ \pm 7.0^\circ$, Runway offset: $5.0 \pm 25.0\text{ m}$, disclaimer: *"sin validar con datos externos"*).
 - **Cruise Case 2**: `docs/img/social/case2_cruise_4x5.png` (Parallax-corrected: $932\text{ km/h}$ $[907 - 960]$, Heading: $316.4^\circ \pm 6.1^\circ$, apparent vs corrected, disclaimer: *"sin validar con datos externos"*).
 
 ---
@@ -254,9 +256,9 @@ To maintain strict scientific transparency, the physical and kinematic component
 | :--- | :--- | :--- |
 | **Inter-band timing ($0.000, 0.478, 1.005\text{ s}$)** | **Respaldada por literatura** | Official MSI focal plane detector staggered layout and empirical timing calibrations ([Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021); [Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)). |
 | **Subpixel collinearity & Green position** | **Coherente internamente** | Observed offsets $\le 0.54\text{ px}$ and relative position delta $\le 0.01$ conform to uniform linear motion across detectors. |
-| **LEBB Runway 12 geodetic alignment** | **Coherente internamente** | Derived heading ($117.4^\circ \pm 7.0^\circ$) matches within $0.7^\circ$ of official [ENAIRE AIP](https://aip.enaire.es/AIP/) threshold coordinates ($116.7^\circ$). |
-| **Stereoscopic pushbroom parallax model** | **Respaldada por literatura** | Forward parallax model $\vec{v}_{\text{real}} = (1 - h/H)\vec{v}_{\text{apparent}} + (h/H)\vec{v}_{\text{track}}$ derived from pushbroom sensor geometry ([Heiselberg & Heiselberg, 2021](https://doi.org/10.3390/rs13153016); [Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021)). |
-| **Band acquisition order (`red-first`)** | **Coherente internamente** | Physically plausible subsonic velocities in both cases; pending external ADS-B confirmation. |
+| **LEBB Runway 12 geodetic alignment** | **Coherente internamente** | Compatible within uncertainty (±7°); alignment is symmetric with respect to the runway axis and does not discriminate band order. |
+| **Stereoscopic pushbroom parallax model** | **Respaldada por literatura** | Derived from pushbroom geometry; magnitude consistent with literature (Krauß 2021, Heiselberg & Heiselberg 2021); sign not independently validated. |
+| **Band acquisition order (`red-first`)** | **Hipótesis no validada** | The plausibility argument only applies to Case 2 (corrected speed 932 vs 1386 km/h) and depends on assumed altitude and unknown wind; pending ADS-B. |
 | **Case 1 & Case 2 aircraft flight correlation** | **Pendiente de contraste ADS-B** | A priori criteria registered in [docs/validation.md](docs/validation.md); pending correlation with external ADS-B / Mode-S state vectors. |
 
 ---
@@ -265,10 +267,12 @@ To maintain strict scientific transparency, the physical and kinematic component
 
 To ensure scientific honesty and transparency, the following physical and sensor constraints must be acknowledged:
 
-1. **Altitude Parallax Conflation**: For airborne targets, apparent displacement is the vector sum of horizontal aircraft ground movement and stereoscopic parallax induced by satellite motion at high altitude. Velocity measurements are only strictly quantitative for targets on or very near ground level.
-2. **Lack of Flight Identification**: Satellite imagery does not transmit aircraft callsigns, transponder codes, or flight levels. Correlating detections with specific commercial flights requires ADS-B telemetry validation.
-3. **Sensor Spatial Resolution**: At $10\text{ m/pixel}$, an airliner spans only $3 - 5$ pixels. Structural details (wings, engines, fuselage shape) cannot be resolved; identification relies entirely on chromatic dispersion signatures.
-4. **Slow-Moving Targets**: Ships and maritime vessels moving at $10 - 20\text{ knots}$ ($5 - 10\text{ m/s}$) displace less than $5 - 10\text{ m}$ in $1.005\text{ s}$, which is near or below the single-pixel limit ($10\text{ m}$), making them challenging to quantify without multi-temporal cross-correlation.
+1. **Manual Candidate Selection**: Analyzed detections were selected manually among observable candidates in the scene without an estimate of the false positive rate (FPR) in systematic or unsupervised searches.
+2. **Collinearity as Internal Coherence**: Subpixel collinearity and the intermediate position of the green band diagnose internal consistency with a uniform rectilinear motion model across detectors, not an independent empirical validation.
+3. **Altitude Parallax Conflation**: For airborne targets, apparent displacement is the vector sum of horizontal aircraft ground movement and stereoscopic parallax induced by satellite motion at high altitude. Velocity measurements are only strictly quantitative for targets on or very near ground level.
+4. **Lack of Flight Identification**: Satellite imagery does not transmit aircraft callsigns, transponder codes, or flight levels. Correlating detections with specific commercial flights requires ADS-B telemetry validation.
+5. **Sensor Spatial Resolution**: At $10\text{ m/pixel}$, an airliner spans only $3 - 5$ pixels. Structural details (wings, engines, fuselage shape) cannot be resolved; identification relies entirely on chromatic dispersion signatures.
+6. **Slow-Moving Targets**: Ships and maritime vessels moving at $10 - 20\text{ knots}$ ($5 - 10\text{ m/s}$) displace less than $5 - 10\text{ m}$ in $1.005\text{ s}$, which is near or below the single-pixel limit ($10\text{ m}$), making them challenging to quantify without multi-temporal cross-correlation.
 
 ---
 
