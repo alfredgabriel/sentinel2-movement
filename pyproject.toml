@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s2motion"
-version = "0.1.0"
+version = "0.2.0"
 description = "Detection and velocity measurement of moving objects using Sentinel-2 inter-band parallax"
 readme = "README.md"
 requires-python = ">=3.10"

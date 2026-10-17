@@ -83,6 +83,12 @@ s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
 #### Análisis cinemático subpíxel y contexto ambiental
 ![Aproximación Loiu 2026-08-12](docs/img/loiu_2026-08-12_measured.png)
 
+#### Paneles espectrales por banda (B04, B08, B03, B02)
+![Bandas espectrales Caso 1](docs/img/loiu_2026-08-12_bands.png)
+
+#### Recorte ampliado con cuadrícula de píxeles (10 m/px)
+![Cuadrícula de píxeles Caso 1](docs/img/loiu_2026-08-12_pixelgrid.png)
+
 ```text
 ============================================================
 Sentinel-2 Moving Object Kinematics & Coherence Report
@@ -127,6 +133,12 @@ Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
 
 #### Cinemática subpíxel y corrección de paralaje
 ![Avión a alta cota Loiu 2026-06-21](docs/img/loiu_2026-06-21_measured.png)
+
+#### Paneles espectrales por banda (B04, B08, B03, B02)
+![Bandas espectrales Caso 2](docs/img/loiu_2026-06-21_bands.png)
+
+#### Recorte ampliado con cuadrícula de píxeles (10 m/px)
+![Cuadrícula de píxeles Caso 2](docs/img/loiu_2026-06-21_pixelgrid.png)
 
 ```text
 ============================================================
@@ -183,7 +195,40 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 
 ---
 
-## 6. Limitaciones físicas y del sensor
+## 6. Generación reproducible de figuras y tarjetas sociales (4:5)
+
+Todas las figuras (vistas generales, análisis cinemático detallado, paneles espectrales por banda, recortes ampliados con cuadrícula y tarjetas sociales 4:5) se regeneran con un único comando a partir de los datos en `examples/data/` sin conexión a la red:
+
+```bash
+# Generar todas las figuras en español (por defecto)
+python scripts/generate_figures.py --lang es
+
+# Generar figuras con textos de tarjetas sociales en inglés
+python scripts/generate_figures.py --lang en
+```
+
+Las versiones sociales 4:5 (1080x1350 px) en modo oscuro para divulgación en LinkedIn/Twitter se guardan en `docs/img/social/`:
+- **Aproximación Caso 1**: `docs/img/social/case1_approach_4x5.png` (Velocidad: $295 \pm 42\text{ km/h}$, Rumbo: $117.4^\circ \pm 7.0^\circ$, Desviación del eje: $5.0 \pm 15.0\text{ m}$, aviso: *"sin validar con datos externos"*).
+- **Crucero Caso 2**: `docs/img/social/case2_cruise_4x5.png` (Velocidad corregida: $932\text{ km/h}$ $[907 - 960]$, Rumbo corregido: $316.4^\circ \pm 6.1^\circ$, aparente vs corregida, aviso: *"sin validar con datos externos"*).
+
+---
+
+## 7. Estado de validación
+
+Para garantizar el máximo rigor científico y transparencia, los componentes de `s2motion` se clasifican según su grado de contraste empírico:
+
+| Componente / Parámetro | Estado de validación | Evidencia / Justificación técnica |
+| :--- | :--- | :--- |
+| **Tiempos inter-banda ($0.000, 0.478, 1.005\text{ s}$)** | **Respaldada por literatura** | Disposición física del plano focal del sensor MSI y calibraciones temporales empíricas ([Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021); [Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)). |
+| **Colinealidad subpíxel y posición de la banda verde** | **Coherente internamente** | Desviaciones observadas $\le 0.54\text{ px}$ y desfase temporal $\le 0.01$ coherentes con movimiento rectilíneo uniforme entre detectores. |
+| **Alineación geométrica con pista 12 de Bilbao** | **Coherente internamente** | Rumbo derivado ($117.4^\circ \pm 7.0^\circ$) coincidente a $0.7^\circ$ con el eje geodésico calculado de umbrales oficiales de [ENAIRE AIP](https://aip.enaire.es/AIP/) ($116.7^\circ$). |
+| **Modelo estereoscópico de paralaje pushbroom** | **Respaldada por literatura** | Modelo de paralaje hacia delante $\vec{v}_{\text{real}} = (1 - h/H)\vec{v}_{\text{aparente}} + (h/H)\vec{v}_{\text{traza}}$ derivado de la geometría del sensor pushbroom ([Heiselberg & Heiselberg, 2021](https://doi.org/10.3390/rs13153016); [Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021)). |
+| **Orden de adquisición de bandas (`red-first`)** | **Coherente internamente** | Velocidades subsónicas verosímiles en ambos casos; pendiente de confirmación con datos ADS-B externos. |
+| **Correlación de vuelos reales Casos 1 y 2** | **Pendiente de contraste ADS-B** | Criterios fijados a priori en [docs/validation.md](docs/validation.md); pendiente de contraste con registros ADS-B / Modo-S independientes. |
+
+---
+
+## 8. Limitaciones físicas y del sensor
 
 - **Paralaje por altura**: La velocidad solo es cuantitativamente exacta sin correcciones para objetos en superficie o muy baja cota. Para aeronaves en crucero se requiere modelar la altitud del blanco.
 - **Sin identificación de vuelo**: No se identifica la matrícula o vuelo sin telemetría ADS-B cruzada.
@@ -192,7 +237,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 
 ---
 
-## 7. Referencias
+## 9. Referencias
 
 - **Krauß, T. (2021)**. *Extraction of Cloud Heights from Sentinel-2 Multispectral Images*.  
   ISPRS Annals, Vol. V-1-2021, pp. 17–23. DOI: [10.5194/isprs-annals-V-1-2021-17-2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021)
@@ -207,7 +252,7 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 
 ---
 
-## 8. Atribución de datos y licencia
+## 10. Atribución de datos y licencia
 
 - **Atribución de datos Copernicus Sentinel**: Contiene datos modificados de Copernicus Sentinel [2026].
 - **Licencia del código**: Distribuido bajo la [Licencia MIT](LICENSE).

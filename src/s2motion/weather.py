@@ -374,7 +374,7 @@ def fetch_historical_weather(
 
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "s2motion/0.1.0 (Sentinel-2 Motion Tracking)"},
+        headers={"User-Agent": "s2motion/0.2.0 (Sentinel-2 Motion Tracking)"},
     )
 
     try:

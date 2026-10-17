@@ -6,4 +6,4 @@ moving objects and calculate their displacement, heading, and velocity with prop
 uncertainties.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

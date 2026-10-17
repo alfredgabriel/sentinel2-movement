@@ -5,4 +5,4 @@ import s2motion
 
 def test_version() -> None:
     """Verify package version is set."""
-    assert s2motion.__version__ == "0.1.0"
+    assert s2motion.__version__ == "0.2.0"

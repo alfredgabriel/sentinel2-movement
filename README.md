@@ -114,6 +114,12 @@ s2motion validate --adsb flight_data.csv --config examples/loiu_2026-08-12.toml
 #### Subpixel Kinematics & Inter-Band Analysis (with Live Weather Fusion)
 ![Case 1: Aircraft on Approach to Bilbao Airport](docs/img/loiu_2026-08-12_measured.png)
 
+#### Multi-Band Spectral Anomaly Panels (B04, B08, B03, B02)
+![Case 1 Spectral Bands](docs/img/loiu_2026-08-12_bands.png)
+
+#### High-Zoom Subpixel Resolution with Pixel Grid (10 m/px)
+![Case 1 Pixel Grid](docs/img/loiu_2026-08-12_pixelgrid.png)
+
 ```text
 ============================================================
 Sentinel-2 Moving Object Kinematics & Coherence Report
@@ -158,6 +164,12 @@ Surface Weather Telemetry (Open-Meteo, 10m AGL - Environmental Context):
 
 #### Subpixel Kinematics & Inter-Band Analysis
 ![Case 2: High-Altitude Cruising Aircraft with Contrail](docs/img/loiu_2026-06-21_measured.png)
+
+#### Multi-Band Spectral Anomaly Panels (B04, B08, B03, B02)
+![Case 2 Spectral Bands](docs/img/loiu_2026-06-21_bands.png)
+
+#### High-Zoom Subpixel Resolution with Pixel Grid (10 m/px)
+![Case 2 Pixel Grid](docs/img/loiu_2026-06-21_pixelgrid.png)
 
 ```text
 ============================================================
@@ -216,7 +228,40 @@ Stereoscopic Parallax Correction (Satellite Track: 6721 m/s, heading: 194.7°):
 
 ---
 
-## 6. Limitations
+## 6. Reproducible Figure Generation & Social Cards (4:5)
+
+All scene overviews, detailed kinematics figures, multiband spectral panels, pixel grid zooms, and 4:5 social cards can be regenerated with a single command from offline data fixtures in `examples/data/` without network access:
+
+```bash
+# Generate all figures in Spanish (default)
+python scripts/generate_figures.py --lang es
+
+# Generate all figures with English text on social cards
+python scripts/generate_figures.py --lang en
+```
+
+High-impact social media cards (1080x1350 px, 4:5 vertical) formatted for technical dissemination on LinkedIn/Twitter are exported to `docs/img/social/`:
+- **Approach Case 1**: `docs/img/social/case1_approach_4x5.png` (Speed: $295 \pm 42\text{ km/h}$, Heading: $117.4^\circ \pm 7.0^\circ$, Runway offset: $5.0 \pm 15.0\text{ m}$, disclaimer: *"sin validar con datos externos"*).
+- **Cruise Case 2**: `docs/img/social/case2_cruise_4x5.png` (Parallax-corrected: $932\text{ km/h}$ $[907 - 960]$, Heading: $316.4^\circ \pm 6.1^\circ$, apparent vs corrected, disclaimer: *"sin validar con datos externos"*).
+
+---
+
+## 7. Validation Status
+
+To maintain strict scientific transparency, the physical and kinematic components of `s2motion` are categorized according to their empirical backing:
+
+| Component / Magnitude | Validation Status | Evidence / Technical Basis |
+| :--- | :--- | :--- |
+| **Inter-band timing ($0.000, 0.478, 1.005\text{ s}$)** | **Respaldada por literatura** | Official MSI focal plane detector staggered layout and empirical timing calibrations ([Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021); [Binet et al., 2022](https://doi.org/10.5194/isprs-annals-V-1-2022-57-2022)). |
+| **Subpixel collinearity & Green position** | **Coherente internamente** | Observed offsets $\le 0.54\text{ px}$ and relative position delta $\le 0.01$ conform to uniform linear motion across detectors. |
+| **LEBB Runway 12 geodetic alignment** | **Coherente internamente** | Derived heading ($117.4^\circ \pm 7.0^\circ$) matches within $0.7^\circ$ of official [ENAIRE AIP](https://aip.enaire.es/AIP/) threshold coordinates ($116.7^\circ$). |
+| **Stereoscopic pushbroom parallax model** | **Respaldada por literatura** | Forward parallax model $\vec{v}_{\text{real}} = (1 - h/H)\vec{v}_{\text{apparent}} + (h/H)\vec{v}_{\text{track}}$ derived from pushbroom sensor geometry ([Heiselberg & Heiselberg, 2021](https://doi.org/10.3390/rs13153016); [Krauß, 2021](https://doi.org/10.5194/isprs-annals-V-1-2021-17-2021)). |
+| **Band acquisition order (`red-first`)** | **Coherente internamente** | Physically plausible subsonic velocities in both cases; pending external ADS-B confirmation. |
+| **Case 1 & Case 2 aircraft flight correlation** | **Pendiente de contraste ADS-B** | A priori criteria registered in [docs/validation.md](docs/validation.md); pending correlation with external ADS-B / Mode-S state vectors. |
+
+---
+
+## 8. Limitations
 
 To ensure scientific honesty and transparency, the following physical and sensor constraints must be acknowledged:
 
@@ -227,9 +272,9 @@ To ensure scientific honesty and transparency, the following physical and sensor
 
 ---
 
-## 7. Roadmap
+## 9. Roadmap
 
-Planned future extensions (not implemented in v0.1):
+Planned future extensions (not implemented in v0.2):
 - [ ] **Automated Runway Swath Scanner**: Unsupervised detection of bright multi-chromatic anomalies along runway corridors with automated CSV reporting.
 - [x] **ADS-B Telemetry Integration**: Offline validation module against OpenSky CSV and ADS-B Exchange JSON trajectories (see [docs/validation.md](docs/validation.md)).
 - [ ] **Maritime Port Detection**: Adapted subpixel phase correlation for container ships and ferries entering the Port of Bilbao (El Abra).
@@ -237,7 +282,7 @@ Planned future extensions (not implemented in v0.1):
 
 ---
 
-## 8. Scientific References
+## 10. Scientific References
 
 - **Krauß, T. (2021)**. *Extraction of Cloud Heights from Sentinel-2 Multispectral Images*.  
   ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial Information Sciences, Vol. V-1-2021, pp. 17–23.  
@@ -254,7 +299,7 @@ Planned future extensions (not implemented in v0.1):
 
 ---
 
-## 9. Data Attribution & License
+## 11. Data Attribution & License
 
 - **Copernicus Sentinel Data Attribution**: Contains modified Copernicus Sentinel data [2026].
 - **Code License**: This project is licensed under the [MIT License](LICENSE).
